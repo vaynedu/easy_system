@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>随机抽题练习 - 简易多题型自动出题系统</title>
+    <style>
+        .container { width: 80%; margin: 20px auto; }
+        .module { margin: 30px 0; padding: 20px; border: 1px solid #eee; border-radius: 8px; }
+        button {
+            display: block; margin: 10px 0; padding: 10px 20px;
+            background-color: #4285F4; color: white; border: none; border-radius: 4px; cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover { background-color: #3367D6; }
+        #questionList { margin-top: 20px; line-height: 1.8; }
+        .question-item {
+            margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 6px;
+            background-color: #f9f9f9;
+        }
+        .question-type {
+            display: inline-block; padding: 2px 8px; margin-right: 10px;
+            background-color: #4285F4; color: white; border-radius: 4px; font-size: 12px;
+        }
+        .correct-answer { color: #28a745; font-weight: bold; }
+        .analysis { color: #666; margin: 5px 0; }
+        .remark { color: #999; font-style: italic; font-size: 14px; }
+        h1 { color: #333; border-bottom: 2px solid #4285F4; padding-bottom: 10px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>随机抽题练习（选择/填空/问答）</h1>
+
+    <!-- 随机抽题模块 -->
+    <div class="module">
+        <h2>随机抽取10道题</h2>
+        <button onclick="getRandom10Questions()">点击获取随机题目</button>
+        <div id="questionList"></div>
+    </div>
+</div>
+
+<script>
+    const baseUrl = "http://127.0.0.1:8080/api";
+
+    // 随机获取10道题（适配Gin JSON返回）
+    function getRandom10Questions() {
+        const list = document.getElementById("questionList");
+        list.innerHTML = '<p style="color: #666;">正在获取题目，请稍候...</p>';
+
+        fetch(`${baseUrl}/getRandom10`, { method: "GET" })
+            .then(res => res.json())
+            .then(res => {
+                list.innerHTML = "";
+
+                if (res.code !== 200) {
+                    list.innerText = res.msg;
+                    return;
+                }
+
+                const questions = res.data;
+                if (questions.length === 0) {
+                    list.innerText = "题库中暂无题目，请先前往【题目上传】页面录入题目！";
+                    return;
+                }
+
+                // 渲染题目列表
+                questions.forEach((q, index) => {
+                    const item = document.createElement("div");
+                    item.className = "question-item";
+
+                    // 题型转换
+                    let typeText = "";
+                    let typeColor = "";
+                    switch (q.question_type) {
+                        case 0:
+                            typeText = "选择题";
+                            typeColor = "#4285F4";
+                            break;
+                        case 1:
+                            typeText = "填空题";
+                            typeColor = "#28a745";
+                            break;
+                        case 2:
+                            typeText = "问答题";
+                            typeColor = "#ffc107";
+                            break;
+                        default:
+                            typeText = "未知题型";
+                            typeColor = "#6c757d";
+                    }
+
+                    // 拼接HTML
+                    let html = `
+                          <h4>
+                              <span class="question-type" style="background-color: ${typeColor}">${typeText}</span>
+                              ${index + 1}. ${q.question_title}
+                          </h4>
+                      `;
+
+                    // 选择题显示选项
+                    if (q.question_type === 0) {
+                        html += `
+                              <p>A. ${q.option_a}</p>
+                              <p>B. ${q.option_b}</p>
+                              <p>C. ${q.option_c}</p>
+                              <p>D. ${q.option_d}</p>
+                          `;
+                    }
+
+                    // 答案、解析、备注
+                    html += `
+                          <p class="correct-answer">正确答案：${q.correct_answer}</p>
+                          <p class="analysis">解析：${q.answer_analysis || "无解析"}</p>
+                          <p class="remark">备注：${q.question_remark || "无备注"}</p>
+                      `;
+
+                    item.innerHTML = html;
+                    list.appendChild(item);
+                });
+            })
+            .catch(err => {
+                list.innerText = "获取题目失败：" + err.message;
+            });
+    }
+</script>
+</body>
+</html>

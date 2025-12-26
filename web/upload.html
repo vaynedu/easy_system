@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>题目上传 - 简易多题型自动出题系统</title>
+    <style>
+        .container { width: 80%; margin: 20px auto; }
+        .module { margin: 30px 0; padding: 20px; border: 1px solid #eee; border-radius: 8px; }
+        input, textarea, button, select, input[type="file"] {
+            display: block; margin: 10px 0; padding: 8px; width: 50%; box-sizing: border-box;
+        }
+        button {
+            background-color: #4285F4; color: white; border: none; border-radius: 4px; cursor: pointer;
+        }
+        button:hover { background-color: #3367D6; }
+        .option-group { margin: 15px 0; }
+        .tip { margin: 10px 0; }
+        h1 { color: #333; border-bottom: 2px solid #4285F4; padding-bottom: 10px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>题目上传（选择/填空/问答）</h1>
+
+    <!-- 手动录入题目模块 -->
+    <div class="module">
+        <h2>手动录入题目</h2>
+        <select id="questionType" onchange="toggleOptionGroup()">
+            <option value="0">选择题</option>
+            <option value="1">填空题</option>
+            <option value="2">问答题</option>
+        </select>
+        <textarea id="questionTitle" placeholder="请输入题干内容" rows="3"></textarea>
+        <div class="option-group" id="optionGroup">
+            <input type="text" id="optionA" placeholder="选项A">
+            <input type="text" id="optionB" placeholder="选项B">
+            <input type="text" id="optionC" placeholder="选项C">
+            <input type="text" id="optionD" placeholder="选项D">
+        </div>
+        <input type="text" id="correctAnswer" placeholder="正确答案（0=选择：A/B/C/D；1/2=填空/问答：具体答案）">
+        <textarea id="answerAnalysis" placeholder="请输入答案解析（可选，问答题推荐填写）" rows="3"></textarea>
+        <input type="text" id="questionRemark" placeholder="请输入题目备注（可选，如来源、难度等）">
+        <button onclick="addQuestion()">提交题目</button>
+        <p id="addTip" class="tip"></p>
+    </div>
+
+    <!-- Excel批量导入模块 -->
+    <div class="module">
+        <h2>Excel批量导入题目</h2>
+        <p style="color: #666;">Excel表头：题目类型、题干、选项A、选项B、选项C、选项D、正确答案、答案解析、题目备注</p>
+        <p style="color: #666;">题型取值：0（选择题）、1（填空题）、2（问答题）；非选择题选项可留空</p>
+        <input type="file" id="excelFile" accept=".xlsx">
+        <button onclick="importExcelQuestion()">上传并导入</button>
+        <p id="importTip" class="tip"></p>
+    </div>
+</div>
+
+<script>
+    const baseUrl = "http://127.0.0.1:8080/api";
+
+    // 题型联动：显示/隐藏选项组
+    function toggleOptionGroup() {
+        const type = document.getElementById("questionType").value;
+        const optionGroup = document.getElementById("optionGroup");
+        optionGroup.style.display = type === "0" ? "block" : "none";
+    }
+
+    // 手动新增题目（适配Gin JSON返回）
+    function addQuestion() {
+        const data = {
+            question_type: parseInt(document.getElementById("questionType").value),
+            question_title: document.getElementById("questionTitle").value.trim(),
+            option_a: document.getElementById("optionA").value.trim(),
+            option_b: document.getElementById("optionB").value.trim(),
+            option_c: document.getElementById("optionC").value.trim(),
+            option_d: document.getElementById("optionD").value.trim(),
+            correct_answer: document.getElementById("correctAnswer").value.trim().toUpperCase(),
+            answer_analysis: document.getElementById("answerAnalysis").value.trim(),
+            question_remark: document.getElementById("questionRemark").value.trim()
+        };
+
+        fetch(`${baseUrl}/addQuestion`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json;charset=utf-8" },
+            body: JSON.stringify(data)
+        }).then(res => res.json())
+            .then(res => {
+                const tip = document.getElementById("addTip");
+                tip.style.color = res.code === 200 ? "green" : "red";
+                tip.innerText = res.msg;
+                // 清空输入框
+                if (res.code === 200) {
+                    document.getElementById("questionType").value = "0";
+                    document.getElementById("questionTitle").value = "";
+                    document.getElementById("optionA").value = "";
+                    document.getElementById("optionB").value = "";
+                    document.getElementById("optionC").value = "";
+                    document.getElementById("optionD").value = "";
+                    document.getElementById("correctAnswer").value = "";
+                    document.getElementById("answerAnalysis").value = "";
+                    document.getElementById("questionRemark").value = "";
+                    toggleOptionGroup();
+                }
+            })
+            .catch(err => {
+                document.getElementById("addTip").style.color = "red";
+                document.getElementById("addTip").innerText = "提交失败：" + err.message;
+            });
+    }
+
+    // Excel批量导入（适配Gin JSON返回）
+    function importExcelQuestion() {
+        const fileInput = document.getElementById("excelFile");
+        const file = fileInput.files[0];
+        const tip = document.getElementById("importTip");
+
+        if (!file) {
+            tip.style.color = "red";
+            tip.innerText = "请先选择Excel文件！";
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("excelFile", file);
+
+        tip.style.color = "#333";
+        tip.innerText = "正在导入，请稍候...";
+
+        fetch(`${baseUrl}/importExcelQuestion`, {
+            method: "POST",
+            body: formData
+        }).then(res => res.json())
+            .then(res => {
+                tip.style.color = res.code === 200 ? "green" : "red";
+                tip.innerText = res.msg;
+                fileInput.value = "";
+            })
+            .catch(err => {
+                tip.style.color = "red";
+                tip.innerText = "导入失败：" + err.message;
+                fileInput.value = "";
+            });
+    }
+
+    // 页面加载初始化
+    window.onload = toggleOptionGroup;
+</script>
+</body>
+</html>
