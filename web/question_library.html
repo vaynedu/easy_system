@@ -30,15 +30,138 @@
             background-color: #17a2b8; color: white; border-radius: 4px; font-size: 12px;
         }
         .search-box { margin: 10px 0; }
+        /* 模态框核心样式优化：新增滚动+最大高度 */
         .modal {
             display: none; position: fixed; z-index: 1000; left: 0; top: 0;
             width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
+            overflow-y: auto; /* 页面级滚动兜底 */
         }
         .modal-content {
-            background-color: white; margin: 5% auto; padding: 20px; border-radius: 8px;
+            background-color: white; margin: 3% auto; padding: 25px; border-radius: 8px;
             width: 80%; max-width: 800px;
+            max-height: 90vh; /* 关键：限制最大高度为视口90% */
+            overflow-y: auto; /* 关键：内容超出时垂直滚动 */
+            box-sizing: border-box; /* 内边距计入宽度/高度 */
         }
-        .close { float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close {
+            float: right; font-size: 28px; font-weight: bold; cursor: pointer;
+            margin: -10px -10px 10px 0; /* 调整关闭按钮位置 */
+        }
+        .close:hover { color: #dc3545; }
+        .type-choice {
+            background-color: #4285F4;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            text-align: center;
+        }
+        .type-fill {
+            background-color: #28a745;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            text-align: center;
+        }
+        .type-essay {
+            background-color: #6c757d;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            text-align: center;
+        }
+        .type-unknown {
+            background-color: #dc3545;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            text-align: center;
+        }
+        .tag-primary {
+            background-color: #6c757d;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            text-align: center;
+            margin-right: 4px;
+        }
+        .tag-secondary {
+            background-color: #17a2b8;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            text-align: center;
+        }
+        .tag-none {
+            background-color: #6c757d;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            text-align: center;
+        }
+        /* 编辑表单统一样式 */
+        .edit-form-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .edit-form-label {
+            width: 100px;
+            font-weight: bold;
+            color: #333;
+            flex-shrink: 0; /* 标签宽度不收缩 */
+            padding-top: 4px; /* 对齐输入框基线 */
+        }
+        .edit-form-control {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .edit-form-row-category {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .edit-form-row-category > div {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .edit-form-btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee; /* 分隔按钮区 */
+        }
+        .edit-form-btn-group button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: white;
+            margin: 0; /* 重置默认margin */
+        }
     </style>
 </head>
 <body>
@@ -93,20 +216,20 @@
     </div>
 </div>
 
-<!-- 修改编辑模态框的HTML结构 -->
+<!-- 编辑模态框（优化滚动+布局） -->
 <div id="editModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeEditModal()">&times;</span>
-        <h2>编辑题目</h2>
+        <h2 style="margin-top: 0; padding-bottom: 10px; border-bottom: 1px solid #eee;">编辑题目</h2>
         <form id="editForm">
             <input type="hidden" id="editId">
 
-            <!-- 使用表格布局确保对齐 -->
+            <!-- 表单容器（滚动核心） -->
             <div style="display: flex; flex-direction: column; gap: 15px;">
                 <!-- 题型 -->
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <label style="width: 100px; font-weight: bold; color: #333;">题型</label>
-                    <select id="editQuestionType" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                <div class="edit-form-row">
+                    <label class="edit-form-label">题型</label>
+                    <select id="editQuestionType" class="edit-form-control">
                         <option value="0">选择题</option>
                         <option value="1">填空题</option>
                         <option value="2">问答题</option>
@@ -114,76 +237,74 @@
                 </div>
 
                 <!-- 题干 -->
-                <div style="display: flex; align-items: flex-start; gap: 10px;">
-                    <label style="width: 100px; font-weight: bold; color: #333;">题干</label>
-                    <textarea id="editQuestionTitle" placeholder="题干" rows="4" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;"></textarea>
+                <div class="edit-form-row">
+                    <label class="edit-form-label">题干</label>
+                    <textarea id="editQuestionTitle" placeholder="题干" rows="4" class="edit-form-control"></textarea>
                 </div>
 
                 <!-- 选项组（仅在选择题时显示） -->
-                <div id="editOptionGroup" style="display: none; flex-direction: column; gap: 10px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <label style="width: 100px; font-weight: bold; color: #333;">选项A</label>
-                        <input type="text" id="editOptionA" placeholder="选项A" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                <div id="editOptionGroup" style="display: none; flex-direction: column; gap: 15px;">
+                    <div class="edit-form-row">
+                        <label class="edit-form-label">选项A</label>
+                        <input type="text" id="editOptionA" placeholder="选项A" class="edit-form-control">
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <label style="width: 100px; font-weight: bold; color: #333;">选项B</label>
-                        <input type="text" id="editOptionB" placeholder="选项B" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    <div class="edit-form-row">
+                        <label class="edit-form-label">选项B</label>
+                        <input type="text" id="editOptionB" placeholder="选项B" class="edit-form-control">
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <label style="width: 100px; font-weight: bold; color: #333;">选项C</label>
-                        <input type="text" id="editOptionC" placeholder="选项C" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    <div class="edit-form-row">
+                        <label class="edit-form-label">选项C</label>
+                        <input type="text" id="editOptionC" placeholder="选项C" class="edit-form-control">
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <label style="width: 100px; font-weight: bold; color: #333;">选项D</label>
-                        <input type="text" id="editOptionD" placeholder="选项D" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    <div class="edit-form-row">
+                        <label class="edit-form-label">选项D</label>
+                        <input type="text" id="editOptionD" placeholder="选项D" class="edit-form-control">
                     </div>
                 </div>
 
                 <!-- 正确答案 -->
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <label style="width: 100px; font-weight: bold; color: #333;">正确答案</label>
-                    <input type="text" id="editCorrectAnswer" placeholder="正确答案" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                <div class="edit-form-row">
+                    <label class="edit-form-label">正确答案</label>
+                    <input type="text" id="editCorrectAnswer" placeholder="正确答案" class="edit-form-control">
                 </div>
 
                 <!-- 答案解析 -->
-                <div style="display: flex; align-items: flex-start; gap: 10px;">
-                    <label style="width: 100px; font-weight: bold; color: #333;">答案解析</label>
-                    <textarea id="editAnswerAnalysis" placeholder="答案解析" rows="4" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;"></textarea>
+                <div class="edit-form-row">
+                    <label class="edit-form-label">答案解析</label>
+                    <textarea id="editAnswerAnalysis" placeholder="答案解析" rows="4" class="edit-form-control"></textarea>
                 </div>
 
                 <!-- 题目备注 -->
-                <div style="display: flex; align-items: flex-start; gap: 10px;">
-                    <label style="width: 100px; font-weight: bold; color: #333;">题目备注</label>
-                    <textarea id="editQuestionRemark" placeholder="题目备注" rows="4" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;"></textarea>
+                <div class="edit-form-row">
+                    <label class="edit-form-label">题目备注</label>
+                    <textarea id="editQuestionRemark" placeholder="题目备注" rows="4" class="edit-form-control"></textarea>
                 </div>
 
                 <!-- 分类选择 -->
-                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                        <label style="width: 100px; font-weight: bold; color: #333;">一级分类</label>
-                        <select id="editTag" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                <div class="edit-form-row-category">
+                    <div>
+                        <label class="edit-form-label">一级分类</label>
+                        <select id="editTag" class="edit-form-control">
                             <option value="">选择一级分类</option>
                         </select>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                        <label style="width: 100px; font-weight: bold; color: #333;">二级分类</label>
-                        <select id="editSecondTag" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    <div>
+                        <label class="edit-form-label">二级分类</label>
+                        <select id="editSecondTag" class="edit-form-control">
                             <option value="">选择二级分类</option>
                         </select>
                     </div>
                 </div>
 
-                <!-- 操作按钮 -->
-                <div style="display: flex; gap: 15px; margin-top: 20px;">
-                    <button type="button" onclick="saveQuestion()" style="flex: 1; padding: 12px; background-color: #4285F4; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">保存</button>
-                    <button type="button" onclick="closeEditModal()" style="flex: 1; padding: 12px; background-color: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">取消</button>
+                <!-- 操作按钮（固定视觉底部） -->
+                <div class="edit-form-btn-group">
+                    <button type="button" onclick="saveQuestion()" style="background-color: #4285F4;">保存</button>
+                    <button type="button" onclick="closeEditModal()" style="background-color: #6c757d;">取消</button>
                 </div>
             </div>
         </form>
     </div>
 </div>
-
-
 
 <script>
     const baseUrl = "http://127.0.0.1:8080/api";
@@ -341,32 +462,67 @@
             const row = document.createElement("tr");
 
             let typeText = "";
+            let typeClass = "";
             switch (q.question_type) {
-                case 0: typeText = "选择题"; break;
-                case 1: typeText = "填空题"; break;
-                case 2: typeText = "问答题"; break;
-                default: typeText = "未知题型";
+                case 0:
+                    typeText = "选择题";
+                    typeClass = "type-choice";
+                    break;
+                case 1:
+                    typeText = "填空题";
+                    typeClass = "type-fill";
+                    break;
+                case 2:
+                    typeText = "问答题";
+                    typeClass = "type-essay";
+                    break;
+                default:
+                    typeText = "未知题型";
+                    typeClass = "type-unknown";
             }
 
             let tagHtml = "";
             if (q.tag || q.second_tag) {
-                if (q.tag) tagHtml += `<span class="tag-label">${q.tag}</span>`;
-                if (q.second_tag) tagHtml += `<span class="second-tag-label">${q.second_tag}</span>`;
+                if (q.tag) tagHtml += `<span class="tag-primary">${q.tag}</span>`;
+                if (q.second_tag) tagHtml += `<span class="tag-secondary">${q.second_tag}</span>`;
             } else {
-                tagHtml = "无分类";
+                tagHtml = "<span class='tag-none'>无</span>";
+            }
+
+            // 根据题型调整答案显示
+            let answerText = q.correct_answer;
+            if (q.question_type === 0) { // 选择题
+                let optionText = "";
+                switch (q.correct_answer) {
+                    case "A":
+                        optionText = q.option_a || "";
+                        break;
+                    case "B":
+                        optionText = q.option_b || "";
+                        break;
+                    case "C":
+                        optionText = q.option_c || "";
+                        break;
+                    case "D":
+                        optionText = q.option_d || "";
+                        break;
+                    default:
+                        optionText = q.correct_answer;
+                }
+                answerText = `${q.correct_answer} - ${optionText}`;
             }
 
             row.innerHTML = `
-                <td>${q.id}</td>
-                <td>${typeText}</td>
-                <td style="max-width: 300px; word-wrap: break-word;">${q.question_title}</td>
-                <td>${tagHtml}</td>
-                <td>${q.correct_answer}</td>
-                <td>
-                    <button class="edit-btn" onclick="editQuestion(${q.id})">编辑</button>
-                    <button class="delete-btn" onclick="deleteQuestion(${q.id})">删除</button>
-                </td>
-            `;
+            <td>${q.id}</td>
+            <td><span class="${typeClass}">${typeText}</span></td>
+            <td style="max-width: 300px; word-wrap: break-word;">${q.question_title}</td>
+            <td>${tagHtml}</td>
+            <td style="max-width: 300px; word-wrap: break-word;">${answerText}</td>
+            <td>
+                <button class="edit-btn" onclick="editQuestion(${q.id})">编辑</button>
+                <button class="delete-btn" onclick="deleteQuestion(${q.id})">删除</button>
+            </td>
+        `;
             tbody.appendChild(row);
         });
     }
@@ -453,12 +609,11 @@
         }, 100);
     }
 
-
     // 题型联动选项显示
     function toggleOptionGroup(type) {
         const optionGroup = document.getElementById("editOptionGroup");
         if (type === 0) {
-            optionGroup.style.display = "block";
+            optionGroup.style.display = "flex";
         } else {
             optionGroup.style.display = "none";
         }
@@ -531,6 +686,14 @@
     // 题型变化时联动选项显示
     document.getElementById("editQuestionType").onchange = function() {
         toggleOptionGroup(this.value);
+    };
+
+    // 点击模态框外部关闭
+    window.onclick = function(event) {
+        const modal = document.getElementById("editModal");
+        if (event.target === modal) {
+            closeEditModal();
+        }
     };
 </script>
 </body>
