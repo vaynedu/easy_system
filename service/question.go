@@ -357,3 +357,42 @@ func validateTagRelation(primaryTag, secondaryTag string) error {
 	}
 	return nil
 }
+
+// ExportExcelQuestionRequest 导出题目请求参数结构体
+type ExportExcelQuestionRequest struct {
+	IDs          []uint `json:"ids"`        // 指定题目ID列表
+	ExportAll    bool   `json:"export_all"` // 是否导出全部
+	Tag          string `json:"tag"`        // 一级分类
+	SecondTag    string `json:"second_tag"` // 二级分类
+	QuestionType string `json:"type"`       // 题型
+	Keyword      string `json:"keyword"`    // 关键词搜索
+}
+
+// ExportExcelQuestionService 导出Excel题目的服务函数
+func ExportExcelQuestionService(req ExportExcelQuestionRequest) ([]model.ExamQuestion, error) {
+	var questions []model.ExamQuestion
+	var err error
+
+	// 根据不同条件获取题目
+	if len(req.IDs) > 0 {
+		// 根据ID列表导出
+		questions, err = dao.NewQuestionDao(config.DB).GetQuestionsByIDList(req.IDs)
+		if err != nil {
+			return nil, fmt.Errorf("根据ID列表获取题目失败：%v", err)
+		}
+	} else if req.ExportAll {
+		// 导出全部题目
+		questions, err = dao.NewQuestionDao(config.DB).GetAllQuestions()
+		if err != nil {
+			return nil, fmt.Errorf("获取全部题目失败：%v", err)
+		}
+	} else {
+		// 根据筛选条件导出
+		questions, err = dao.NewQuestionDao(config.DB).GetQuestionsByFilter(req.Tag, req.SecondTag, req.QuestionType, req.Keyword)
+		if err != nil {
+			return nil, fmt.Errorf("根据筛选条件获取题目失败：%v", err)
+		}
+	}
+
+	return questions, nil
+}

@@ -453,3 +453,174 @@ func DeleteQuestion(c *gin.Context) {
 		"code": 200,
 	})
 }
+
+// ExportExcelQuestion 导出题目到Excel
+func ExportExcelQuestion(c *gin.Context) {
+	var req service.ExportExcelQuestionRequest
+
+	// 只解析JSON请求体，不兼容查询参数
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": 400,
+			"msg":  "参数解析失败：" + err.Error(),
+		})
+		return
+	}
+
+	// 参数校验
+	if !req.ExportAll && len(req.IDs) == 0 && req.Tag == "" && req.SecondTag == "" && req.QuestionType == "" && req.Keyword == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": 400,
+			"msg":  "请指定导出条件：ID列表、分类条件、题型或关键词搜索",
+		})
+		return
+	}
+
+	// 调用Service层获取题目数据
+	questions, err := service.ExportExcelQuestionService(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code": 500,
+			"msg":  "导出题目失败：" + err.Error(),
+		})
+		return
+	}
+
+	if len(questions) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 200,
+			"msg":  "没有找到符合条件的题目",
+		})
+		return
+	}
+
+	// 创建Excel文件
+	file := excelize.NewFile()
+	sheetName := "题目列表"
+	index, _ := file.NewSheet(sheetName)
+	file.SetActiveSheet(index)
+
+	// 设置表头
+	headers := []string{
+		"题型", "题干", "选项A", "选项B", "选项C", "选项D",
+		"正确答案", "解析", "备注", "一级分类", "二级分类",
+	}
+	for i, header := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1) // 第1行
+		err := file.SetCellValue(sheetName, cell, header)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "设置表头失败：" + err.Error(),
+			})
+			return
+		}
+	}
+
+	// 填充数据
+	for i, question := range questions {
+		row := i + 2 // 从第2行开始
+		err := file.SetCellValue(sheetName, fmt.Sprintf("A%d", row), question.QuestionType)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "写入题型失败：" + err.Error(),
+			})
+			return
+		}
+		err = file.SetCellValue(sheetName, fmt.Sprintf("B%d", row), question.QuestionTitle)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "写入题干失败：" + err.Error(),
+			})
+			return
+		}
+		err = file.SetCellValue(sheetName, fmt.Sprintf("C%d", row), question.OptionA)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "写入选项A失败：" + err.Error(),
+			})
+			return
+		}
+		err = file.SetCellValue(sheetName, fmt.Sprintf("D%d", row), question.OptionB)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "写入选项B失败：" + err.Error(),
+			})
+			return
+		}
+		err = file.SetCellValue(sheetName, fmt.Sprintf("E%d", row), question.OptionC)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "写入选项C失败：" + err.Error(),
+			})
+			return
+		}
+		err = file.SetCellValue(sheetName, fmt.Sprintf("F%d", row), question.OptionD)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "写入选项D失败：" + err.Error(),
+			})
+			return
+		}
+		err = file.SetCellValue(sheetName, fmt.Sprintf("G%d", row), question.CorrectAnswer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "写入正确答案失败：" + err.Error(),
+			})
+			return
+		}
+		err = file.SetCellValue(sheetName, fmt.Sprintf("H%d", row), question.AnswerAnalysis)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "写入解析失败：" + err.Error(),
+			})
+			return
+		}
+		err = file.SetCellValue(sheetName, fmt.Sprintf("I%d", row), question.QuestionRemark)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "写入备注失败：" + err.Error(),
+			})
+			return
+		}
+		err = file.SetCellValue(sheetName, fmt.Sprintf("J%d", row), question.Tag)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "写入一级分类失败：" + err.Error(),
+			})
+			return
+		}
+		err = file.SetCellValue(sheetName, fmt.Sprintf("K%d", row), question.SecondTag)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": 500,
+				"msg":  "写入二级分类失败：" + err.Error(),
+			})
+			return
+		}
+	}
+
+	// 设置文件下载响应头
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=questions.xlsx")
+
+	// 将Excel文件写入响应
+	err = file.Write(c.Writer)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code": 500,
+			"msg":  "生成Excel文件失败：" + err.Error(),
+		})
+		return
+	}
+}

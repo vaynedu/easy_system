@@ -27,6 +27,7 @@ func InitRouter() *gin.Engine {
 	{
 		api.POST("/addQuestion", handler.AddQuestion)                 // 新增题目
 		api.POST("/importExcelQuestion", handler.ImportExcelQuestion) // Excel导入
+		api.POST("/exportExcelQuestion", handler.ExportExcelQuestion) // Excel导出
 		api.GET("/getRandom10", handler.GetRandom10Questions)         // 随机抽10题
 		api.GET("/tag/tree", handler.GetTagTree)                      // 获取标签树
 
