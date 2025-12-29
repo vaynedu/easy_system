@@ -227,10 +227,13 @@ func ImportExcelQuestion(c *gin.Context) {
 
 // GetRandom10Questions 随机获取10道题接口
 func GetRandom10Questions(c *gin.Context) {
-	var questions []model.ExamQuestion
+	// 获取请求参数中的tag和second_tag
+	tag := c.Query("tag")
+	secondTag := c.Query("second_tag")
 
-	// GORM随机查询10道题（ORDER BY RAND()适配MySQL）
-	if err := config.DB.Order("RAND()").Limit(10).Find(&questions).Error; err != nil {
+	// 调用Service层获取随机题目
+	questions, err := service.GetRandomQuestionsService(tag, secondTag, 10)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"msg": "获取题目失败：" + err.Error(),
 		})

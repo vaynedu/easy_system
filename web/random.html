@@ -21,19 +21,43 @@
             display: inline-block; padding: 2px 8px; margin-right: 10px;
             background-color: #4285F4; color: white; border-radius: 4px; font-size: 12px;
         }
+        /* 新增分类标签样式 */
+        .tag-label {
+            display: inline-block; padding: 2px 8px; margin-right: 8px;
+            background-color: #6c757d; color: white; border-radius: 4px; font-size: 12px;
+        }
+        .second-tag-label {
+            display: inline-block; padding: 2px 8px; margin-right: 10px;
+            background-color: #17a2b8; color: white; border-radius: 4px; font-size: 12px;
+        }
         .correct-answer { color: #28a745; font-weight: bold; }
         .analysis { color: #666; margin: 5px 0; }
         .remark { color: #999; font-style: italic; font-size: 14px; }
         h1 { color: #333; border-bottom: 2px solid #4285F4; padding-bottom: 10px; }
+        /* 分类选择框样式 */
+        select {
+            display: block; margin: 10px 0; padding: 8px; width: 50%; box-sizing: border-box;
+            border: 1px solid #ddd; border-radius: 4px;
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>随机抽题练习（选择/填空/问答）</h1>
 
-    <!-- 随机抽题模块 -->
+    <!-- 随机抽题模块（新增分类筛选） -->
     <div class="module">
         <h2>随机抽取10道题</h2>
+        <!-- 新增：一级分类筛选 -->
+        <select id="primaryTag" onchange="loadSecondaryTags()">
+            <option value="">请选择一级分类（可选）</option>
+            <!-- 动态加载一级分类 -->
+        </select>
+        <!-- 新增：二级分类筛选 -->
+        <select id="secondaryTag">
+            <option value="">请先选择一级分类</option>
+            <!-- 联动加载二级分类 -->
+        </select>
         <button onclick="getRandom10Questions()">点击获取随机题目</button>
         <div id="questionList"></div>
     </div>
@@ -41,13 +65,97 @@
 
 <script>
     const baseUrl = "http://127.0.0.1:8080/api";
+    let tagTreeData = []; // 缓存分类树数据
 
-    // 随机获取10道题（适配Gin JSON返回）
+    // 页面加载初始化
+    window.onload = function() {
+        loadPrimaryTags();
+    }
+
+    // 加载一级分类数据
+    function loadPrimaryTags() {
+        const primaryTagSelect = document.getElementById("primaryTag");
+        primaryTagSelect.innerHTML = '<option value="">请选择一级分类（可选）</option>';
+
+        fetch(`${baseUrl}/tag/tree`, { method: "GET" })
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    tagTreeData = res.data;
+                    // 渲染一级分类选项
+                    tagTreeData.forEach(primaryTag => {
+                        const option = document.createElement("option");
+                        option.value = primaryTag.name;
+                        option.textContent = primaryTag.name;
+                        primaryTagSelect.appendChild(option);
+                    });
+                } else {
+                    console.error("加载分类数据失败：", res.msg);
+                    const list = document.getElementById("questionList");
+                    list.style.color = "orange";
+                    list.innerText = "分类数据加载失败，将获取全部题目！";
+                }
+            })
+            .catch(err => {
+                console.error("加载分类异常：", err);
+                const list = document.getElementById("questionList");
+                list.style.color = "orange";
+                list.innerText = "分类数据加载异常，将获取全部题目！";
+            });
+    }
+
+    // 联动加载二级分类数据
+    function loadSecondaryTags() {
+        const primaryTagValue = document.getElementById("primaryTag").value;
+        const secondaryTagSelect = document.getElementById("secondaryTag");
+        secondaryTagSelect.innerHTML = '';
+
+        if (!primaryTagValue) {
+            const defaultOption = document.createElement("option");
+            defaultOption.value = "";
+            defaultOption.textContent = "请先选择一级分类";
+            secondaryTagSelect.appendChild(defaultOption);
+            return;
+        }
+
+        const targetPrimaryTag = tagTreeData.find(item => item.name === primaryTagValue);
+        if (targetPrimaryTag && targetPrimaryTag.second_tag && targetPrimaryTag.second_tag.length > 0) {
+            const defaultOption = document.createElement("option");
+            defaultOption.value = "";
+            defaultOption.textContent = "请选择二级分类（可选）";
+            secondaryTagSelect.appendChild(defaultOption);
+            // 渲染二级分类选项
+            targetPrimaryTag.second_tag.forEach(secondaryTag => {
+                const option = document.createElement("option");
+                option.value = secondaryTag;
+                option.textContent = secondaryTag;
+                secondaryTagSelect.appendChild(option);
+            });
+        } else {
+            const noOption = document.createElement("option");
+            noOption.value = "";
+            noOption.textContent = "该一级分类无二级分类";
+            secondaryTagSelect.appendChild(noOption);
+        }
+    }
+
+    // 随机获取10道题（新增分类筛选参数）
     function getRandom10Questions() {
         const list = document.getElementById("questionList");
         list.innerHTML = '<p style="color: #666;">正在获取题目，请稍候...</p>';
 
-        fetch(`${baseUrl}/getRandom10`, { method: "GET" })
+        // 获取筛选条件
+        const primaryTag = document.getElementById("primaryTag").value.trim();
+        const secondaryTag = document.getElementById("secondaryTag").value.trim();
+
+        // 构造查询参数
+        let queryParams = [];
+        if (primaryTag) queryParams.push(`tag=${encodeURIComponent(primaryTag)}`);
+        if (secondaryTag) queryParams.push(`second_tag=${encodeURIComponent(secondaryTag)}`);
+        const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+
+        // 发起请求（带筛选参数）
+        fetch(`${baseUrl}/getRandom10${queryString}`, { method: "GET" })
             .then(res => res.json())
             .then(res => {
                 list.innerHTML = "";
@@ -59,11 +167,11 @@
 
                 const questions = res.data;
                 if (questions.length === 0) {
-                    list.innerText = "题库中暂无题目，请先前往【题目上传】页面录入题目！";
+                    list.innerText = "当前筛选条件下暂无题目，请更换分类或前往【题目上传】页面录入题目！";
                     return;
                 }
 
-                // 渲染题目列表
+                // 渲染题目列表（新增分类展示）
                 questions.forEach((q, index) => {
                     const item = document.createElement("div");
                     item.className = "question-item";
@@ -89,13 +197,25 @@
                             typeColor = "#6c757d";
                     }
 
-                    // 拼接HTML
+                    // 拼接HTML（新增分类标签）
                     let html = `
                           <h4>
                               <span class="question-type" style="background-color: ${typeColor}">${typeText}</span>
                               ${index + 1}. ${q.question_title}
                           </h4>
                       `;
+
+                    // 显示分类标签（有值才展示）
+                    if (q.tag || q.second_tag) {
+                        html += `<div style="margin: 8px 0;">`;
+                        if (q.tag) {
+                            html += `<span class="tag-label">一级分类：${q.tag}</span>`;
+                        }
+                        if (q.second_tag) {
+                            html += `<span class="second-tag-label">二级分类：${q.second_tag}</span>`;
+                        }
+                        html += `</div>`;
+                    }
 
                     // 选择题显示选项
                     if (q.question_type === 0) {

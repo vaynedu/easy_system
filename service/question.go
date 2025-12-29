@@ -66,3 +66,37 @@ func AddQuestionService(question *model.ExamQuestion) error {
 	// 4. 调用DAO层插入数据
 	return dao.NewQuestionDao(config.DB).CreateQuestion(question)
 }
+
+// GetRandomQuestionsService 随机获取题目服务
+func GetRandomQuestionsService(tag, secondTag string, limit int) ([]model.ExamQuestion, error) {
+	// 校验标签参数
+	if tag != "" {
+		if !IsValidPrimaryTag(tag) {
+			return nil, errors.New("一级分类无效")
+		}
+		if secondTag == "" {
+			return nil, errors.New("当指定一级分类时，二级分类不能为空")
+		}
+		if !IsSecondaryOfPrimary(tag, secondTag) {
+			return nil, errors.New("二级分类与一级分类不匹配")
+		}
+	} else {
+		if secondTag != "" {
+			return nil, errors.New("未指定一级分类时，不能单独指定二级分类")
+		}
+	}
+
+	// 调用DAO层获取随机题目
+	return dao.NewQuestionDao(config.DB).GetRandomQuestionsByTag(tag, secondTag, limit)
+}
+
+// IsValidPrimaryTag 验证一级标签是否有效
+func IsValidPrimaryTag(tag string) bool {
+	// return consts.IsValidPrimaryTag(tag)
+	return consts.IsValidPrimaryTag(tag)
+}
+
+// IsSecondaryOfPrimary 验证二级标签是否属于一级标签
+func IsSecondaryOfPrimary(primary, secondary string) bool {
+	return consts.IsSecondaryOfPrimary(primary, secondary)
+}

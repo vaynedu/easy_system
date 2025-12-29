@@ -31,3 +31,21 @@ func (q *QuestionDao) GetRandomQuestions(limit int) ([]model.ExamQuestion, error
 	err := q.db.Order("RAND()").Limit(limit).Find(&questions).Error
 	return questions, err
 }
+
+// GetRandomQuestionsByTag 根据标签随机获取指定数量的题目
+func (q *QuestionDao) GetRandomQuestionsByTag(tag, secondTag string, limit int) ([]model.ExamQuestion, error) {
+	var questions []model.ExamQuestion
+	query := q.db.Order("RAND()").Limit(limit)
+
+	// 如果指定了标签，则添加标签过滤条件
+	if tag != "" && secondTag != "" {
+		query = query.Where("tag = ? AND second_tag = ?", tag, secondTag)
+	} else if tag != "" {
+		query = query.Where("tag = ?", tag)
+	} else if secondTag != "" {
+		query = query.Where("second_tag = ?", secondTag)
+	}
+
+	err := query.Find(&questions).Error
+	return questions, err
+}
