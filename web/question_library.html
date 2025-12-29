@@ -188,15 +188,24 @@
         <input type="text" id="searchKeyword" placeholder="关键词搜索（题干、答案等）" style="width: 300px;">
         <button onclick="searchQuestions()">搜索</button>
         <button onclick="resetFilter()">重置</button>
+        <button onclick="exportAllQuestions()">导出全部</button>
+        <button onclick="exportFilteredQuestions()">导出筛选结果</button>
     </div>
 
-    <!-- 题目列表模块 -->
+    <!-- 在题目列表模块中添加批量操作区域 -->
     <div class="module">
         <h2>题目列表</h2>
+        <div style="margin-bottom: 15px;">
+            <label>
+                <input type="checkbox" id="selectAll" onclick="toggleSelectAll()"> 全选
+            </label>
+            <button onclick="exportSelectedQuestions()" style="margin-left: 20px;">导出选中题目</button>
+        </div>
         <div id="questionListContainer">
             <table id="questionTable">
                 <thead>
                 <tr>
+                    <th>选择</th>
                     <th>ID</th>
                     <th>题型</th>
                     <th>题干</th>
@@ -316,6 +325,14 @@
         loadPrimaryTagFilter();
         loadTagOptions();
         loadQuestions();
+
+        // 为全选复选框添加事件监听器
+        document.getElementById('selectAll').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('input[name="selectQuestion"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
     };
 
     // 加载一级分类筛选
@@ -454,7 +471,7 @@
     }
 
     // 渲染题目列表
-    function renderQuestionList(questions) {
+    function renderQuestionListV1(questions) {
         const tbody = document.getElementById("questionTableBody");
         tbody.innerHTML = "";
 
@@ -682,6 +699,245 @@
     function closeEditModal() {
         document.getElementById("editModal").style.display = "none";
     }
+
+
+    // 导出全部题目
+    function exportAllQuestions() {
+        const data = {
+            export_all: true
+        };
+
+        fetch(`${baseUrl}/exportExcelQuestion`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                } else {
+                    return response.json().then(err => {
+                        alert("导出失败：" + err.msg);
+                        throw new Error("导出失败");
+                    });
+                }
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'all_questions.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
+            .catch(err => {
+                console.error('导出失败:', err);
+            });
+    }
+
+    // 导出筛选结果
+    function exportFilteredQuestions() {
+        const primaryTag = document.getElementById("primaryTagFilter").value;
+        const secondaryTag = document.getElementById("secondaryTagFilter").value;
+        const questionType = document.getElementById("questionTypeFilter").value;
+        const keyword = document.getElementById("searchKeyword").value;
+
+        const data = {
+            tag: primaryTag,
+            second_tag: secondaryTag,
+            type: questionType,
+            keyword: keyword
+        };
+
+        fetch(`${baseUrl}/exportExcelQuestion`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                } else {
+                    return response.json().then(err => {
+                        alert("导出失败：" + err.msg);
+                        throw new Error("导出失败");
+                    });
+                }
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'filtered_questions.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
+            .catch(err => {
+                console.error('导出失败:', err);
+            });
+    }
+
+    // 导出选中题目
+    function exportSelectedQuestions() {
+        const selectedCheckboxes = document.querySelectorAll('input[name="selectQuestion"]:checked');
+        if (selectedCheckboxes.length === 0) {
+            alert("请先选择要导出的题目");
+            return;
+        }
+
+        const ids = [];
+        selectedCheckboxes.forEach(checkbox => {
+            ids.push(parseInt(checkbox.value));
+        });
+
+        const data = {
+            ids: ids
+        };
+
+        fetch(`${baseUrl}/exportExcelQuestion`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                } else {
+                    return response.json().then(err => {
+                        alert("导出失败：" + err.msg);
+                        throw new Error("导出失败");
+                    });
+                }
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'selected_questions.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
+            .catch(err => {
+                console.error('导出失败:', err);
+            });
+    }
+
+    // 全选/取消全选功能
+    function toggleSelectAll() {
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('input[name="selectQuestion"]');
+
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+        });
+    }
+
+    // 在renderQuestionList函数中添加复选框
+    function renderQuestionList(questions) {
+        const tbody = document.getElementById("questionTableBody");
+        tbody.innerHTML = "";
+
+        questions.forEach(q => {
+            const row = document.createElement("tr");
+
+            let typeText = "";
+            let typeClass = "";
+            switch (q.question_type) {
+                case 0:
+                    typeText = "选择题";
+                    typeClass = "type-choice";
+                    break;
+                case 1:
+                    typeText = "填空题";
+                    typeClass = "type-fill";
+                    break;
+                case 2:
+                    typeText = "问答题";
+                    typeClass = "type-essay";
+                    break;
+                default:
+                    typeText = "未知题型";
+                    typeClass = "type-unknown";
+            }
+
+            let tagHtml = "";
+            if (q.tag || q.second_tag) {
+                if (q.tag) tagHtml += `<span class="tag-primary">${q.tag}</span>`;
+                if (q.second_tag) tagHtml += `<span class="tag-secondary">${q.second_tag}</span>`;
+            } else {
+                tagHtml = "<span class='tag-none'>无</span>";
+            }
+
+            // 根据题型调整答案显示
+            let answerText = q.correct_answer;
+            if (q.question_type === 0) { // 选择题
+                let optionText = "";
+                switch (q.correct_answer) {
+                    case "A":
+                        optionText = q.option_a || "";
+                        break;
+                    case "B":
+                        optionText = q.option_b || "";
+                        break;
+                    case "C":
+                        optionText = q.option_c || "";
+                        break;
+                    case "D":
+                        optionText = q.option_d || "";
+                        break;
+                    default:
+                        optionText = q.correct_answer;
+                }
+                answerText = `${q.correct_answer} - ${optionText}`;
+            }
+
+            row.innerHTML = `
+        <td><input type="checkbox" name="selectQuestion" value="${q.id}"></td>
+        <td>${q.id}</td>
+        <td><span class="${typeClass}">${typeText}</span></td>
+        <td style="max-width: 300px; word-wrap: break-word;">${q.question_title}</td>
+        <td>${tagHtml}</td>
+        <td style="max-width: 300px; word-wrap: break-word;">${answerText}</td>
+        <td>
+            <button class="edit-btn" onclick="editQuestion(${q.id})">编辑</button>
+            <button class="delete-btn" onclick="deleteQuestion(${q.id})">删除</button>
+        </td>
+    `;
+            tbody.appendChild(row);
+        });
+
+        // 为所有复选框添加事件监听器
+        document.querySelectorAll('input[name="selectQuestion"]').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateSelectAllCheckbox();
+            });
+        });
+    }
+
+    // 更新全选复选框状态
+    function updateSelectAllCheckbox() {
+        const checkboxes = document.querySelectorAll('input[name="selectQuestion"]');
+        const selectAllCheckbox = document.getElementById('selectAll');
+
+        const allChecked = checkboxes.length > 0 && Array.from(checkboxes).every(checkbox => checkbox.checked);
+        const noneChecked = Array.from(checkboxes).every(checkbox => !checkbox.checked);
+
+        selectAllCheckbox.checked = allChecked;
+        selectAllCheckbox.indeterminate = !allChecked && !noneChecked;
+    }
+
+
+
+
 
     // 题型变化时联动选项显示
     document.getElementById("editQuestionType").onchange = function() {
