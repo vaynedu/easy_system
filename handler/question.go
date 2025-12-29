@@ -41,8 +41,8 @@ func AddQuestion(c *gin.Context) {
 	})
 }
 
-// ImportExcelQuestion Excel批量导入题目接口
-func ImportExcelQuestion(c *gin.Context) {
+// ImportExcelQuestionV1 Excel批量导入题目接口
+func ImportExcelQuestionV1(c *gin.Context) {
 	// 接收上传的Excel文件
 	file, err := c.FormFile("excelFile")
 	if err != nil {
@@ -253,6 +253,61 @@ func GetRandom10Questions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"data": questions,
+	})
+}
+
+// ImportExcelQuestion 导入Excel题目
+func ImportExcelQuestion(c *gin.Context) {
+	// 1. 接受上传的Excel文件
+	file, err := c.FormFile("excelFile")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": "获取excel文件失败：" + err.Error(),
+		})
+	}
+
+	// 2. 基础格式校验（仅.xlsx）
+	if !strings.HasSuffix(file.Filename, ".xlsx") {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": 400,
+			"msg":  "仅支持.xlsx格式的Excel文件！",
+		})
+		return
+	}
+	// 3. 打开文件并调用Service层处理
+	src, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code": 500,
+			"msg":  "打开Excel文件失败：" + err.Error(),
+		})
+		return
+	}
+	defer src.Close()
+
+	// 4. 调用Service层核心逻辑
+	successCount, failCount, invalidRow, err := service.ImportExcelQuestions(src)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code": 500,
+			"msg":  "导入题目失败：" + err.Error(),
+		})
+		return
+	}
+
+	// 5. 构造响应返回
+	msg := "导入完成！成功：%d 道，失败：%d 道"
+	if failCount > 0 {
+		msg += "（首个无效行：Excel第 %d 行）"
+		c.JSON(http.StatusOK, gin.H{
+			"code": 200,
+			"msg":  fmt.Sprintf(msg, successCount, failCount, invalidRow),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 200,
+		"msg":  fmt.Sprintf(msg, successCount, failCount),
 	})
 }
 

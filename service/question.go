@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/vaynedu/exam_system/consts"
 	"github.com/vaynedu/exam_system/dao"
 	"github.com/vaynedu/exam_system/model"
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -205,4 +207,153 @@ func UpdateQuestionService(question *model.ExamQuestion) error {
 // DeleteQuestionService 删除题目服务
 func DeleteQuestionService(id uint) error {
 	return dao.NewQuestionDao(config.DB).DeleteQuestion(id)
+}
+
+// ImportExcelQuestions 解析Excel并导入题目（核心业务逻辑）
+func ImportExcelQuestions(fileReader io.Reader) (successCount, failCount, invalidRow int, err error) {
+	// 1. 解析Excel文件
+	excelFile, err := excelize.OpenReader(fileReader)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("解析Excel失败：%w", err)
+	}
+
+	// 2. 读取工作表数据
+	sheetName := excelFile.GetSheetName(0)
+	rows, err := excelFile.GetRows(sheetName)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("读取Excel数据失败：%w", err)
+	}
+
+	// 3. 校验数据行数（至少表头+1行数据）
+	if len(rows) <= 1 {
+		return 0, 0, 0, errors.New("excel无有效数据（需包含表头+至少1行题目）")
+	}
+
+	// 4. 解析&校验每行数据
+	var questions []model.ExamQuestion
+	invalidRow = 0
+	for i := 1; i < len(rows); i++ {
+		row := rows[i]
+		// 单行列数校验
+		if len(row) < 9 {
+			failCount++
+			invalidRow = getExcelRowNum(i)
+			continue
+		}
+
+		// 提取并格式化数据
+		question, rowErr := parseAndValidateRow(row, i)
+		if rowErr != nil {
+			failCount++
+			invalidRow = getExcelRowNum(i)
+			continue
+		}
+
+		questions = append(questions, *question)
+		successCount++
+	}
+
+	// 5. 批量插入数据库（调用DAO层）
+	if len(questions) > 0 {
+		questionDao := dao.NewQuestionDao(config.DB)
+		if err := questionDao.CreateQuestionsInBatches(questions, 100); err != nil {
+			return successCount, failCount, invalidRow, fmt.Errorf("批量插入失败：%w", err)
+		}
+	}
+
+	return successCount, failCount, invalidRow, nil
+}
+
+// parseAndValidateRow 解析并校验单行数据
+func parseAndValidateRow(row []string, rowIdx int) (*model.ExamQuestion, error) {
+	// 提取字段（trim空格）
+	typeStr := strings.TrimSpace(row[0])
+	title := strings.TrimSpace(row[1])
+	optA := strings.TrimSpace(row[2])
+	optB := strings.TrimSpace(row[3])
+	optC := strings.TrimSpace(row[4])
+	optD := strings.TrimSpace(row[5])
+	answer := strings.TrimSpace(strings.ToUpper(row[6]))
+	analysis := strings.TrimSpace(row[7])
+	remark := strings.TrimSpace(row[8])
+	tag := strings.TrimSpace(row[9])        // 一级分类
+	secondTag := strings.TrimSpace(row[10]) // 二级分类
+
+	// 1. 题型转换&校验
+	typeInt, err := strconv.Atoi(typeStr)
+	if err != nil || (typeInt != 0 && typeInt != 1 && typeInt != 2) {
+		return nil, errors.New("题型无效（仅支持0/1/2：选择/填空/问答）")
+	}
+
+	// 2. 通用必填项校验
+	if title == "" || answer == "" {
+		return nil, errors.New("题干/正确答案不能为空")
+	}
+
+	// 3. 选择题专属校验
+	if typeInt == 0 {
+		if optA == "" || optB == "" || optC == "" || optD == "" {
+			return nil, errors.New("选择题选项A-D不能为空")
+		}
+		validAnswers := []string{"A", "B", "C", "D"}
+		isValidAnswer := false
+		for _, a := range validAnswers {
+			if answer == a {
+				isValidAnswer = true
+				break
+			}
+		}
+		if !isValidAnswer {
+			return nil, errors.New("选择题答案仅支持A/B/C/D")
+		}
+	}
+
+	// 4. 标签校验（调用consts层）
+	if err := validateTagRelation(tag, secondTag); err != nil {
+		return nil, err
+	}
+
+	// 构造题目对象
+	return &model.ExamQuestion{
+		QuestionType:   int8(typeInt),
+		QuestionTitle:  title,
+		OptionA:        optA,
+		OptionB:        optB,
+		OptionC:        optC,
+		OptionD:        optD,
+		CorrectAnswer:  answer,
+		AnswerAnalysis: analysis,
+		QuestionRemark: remark,
+		Tag:            tag,
+		SecondTag:      secondTag,
+	}, nil
+}
+
+// 辅助函数：获取Excel实际行号（索引+1）
+func getExcelRowNum(idx int) int {
+	return idx + 1
+}
+
+// validateTagRelation 标签关联校验（抽离复用）
+func validateTagRelation(primaryTag, secondaryTag string) error {
+	if primaryTag != "" {
+		// 校验一级标签有效性
+		if !consts.IsValidPrimaryTag(primaryTag) {
+			return errors.New("一级分类标签无效")
+		}
+		// 一级标签存在时，二级标签不能为空
+		if secondaryTag == "" {
+			return errors.New("一级分类存在时，二级分类不能为空")
+		}
+		// 校验二级标签归属
+		if !consts.IsSecondaryOfPrimary(primaryTag, secondaryTag) {
+			return errors.New("二级分类不属于当前一级分类")
+		}
+	} else {
+		// 一级标签为空时，二级标签也必须为空
+		if secondaryTag != "" {
+			return errors.New("一级分类为空时，二级分类不能为空")
+		}
+	}
+	return nil
 }
