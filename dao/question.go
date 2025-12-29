@@ -49,3 +49,13 @@ func (q *QuestionDao) GetRandomQuestionsByTag(tag, secondTag string, limit int) 
 	err := query.Find(&questions).Error
 	return questions, err
 }
+
+// UpdateQuestion 更新题目
+func (q *QuestionDao) UpdateQuestion(question *model.ExamQuestion) error {
+	return q.db.Model(&model.ExamQuestion{}).Where("id = ?", question.ID).Updates(question).Error
+}
+
+// DeleteQuestion 删除题目
+func (q *QuestionDao) DeleteQuestion(id uint) error {
+	return q.db.Delete(&model.ExamQuestion{}, id).Error
+}

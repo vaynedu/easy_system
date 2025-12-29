@@ -255,3 +255,146 @@ func GetRandom10Questions(c *gin.Context) {
 		"data": questions,
 	})
 }
+
+// GetQuestionsByFilter 根据筛选条件获取题目列表
+func GetQuestionsByFilter(c *gin.Context) {
+	// 获取查询参数
+	tag := c.Query("tag")
+	secondTag := c.Query("second_tag")
+	questionType := c.Query("type")
+	keyword := c.Query("keyword")
+
+	// 分页参数
+	page, _ := strconv.Atoi(c.Query("page"))
+	if page <= 0 {
+		page = 1
+	}
+	size, _ := strconv.Atoi(c.Query("size"))
+	if size <= 0 || size > 100 {
+		size = 10
+	}
+
+	// 调用Service层获取题目列表
+	questions, total, err := service.GetQuestionsByFilterService(tag, secondTag, questionType, keyword, page, size)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"msg":  "获取题目列表失败：" + err.Error(),
+			"code": 500,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 200,
+		"data": gin.H{
+			"questions": questions,
+			"total":     total,
+			"page":      page,
+			"size":      size,
+		},
+	})
+}
+
+// GetQuestionByID 根据ID获取题目详情
+func GetQuestionByID(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg":  "题目ID格式错误",
+			"code": 400,
+		})
+		return
+	}
+
+	question, err := service.GetQuestionByIDService(uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"msg":  "获取题目详情失败：" + err.Error(),
+			"code": 500,
+		})
+		return
+	}
+
+	if question.ID == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"msg":  "题目不存在",
+			"code": 404,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 200,
+		"data": question,
+	})
+}
+
+// UpdateQuestion 更新题目
+func UpdateQuestion(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg":  "题目ID格式错误",
+			"code": 400,
+		})
+		return
+	}
+
+	var req model.ExamQuestion
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg":  "参数解析失败：" + err.Error(),
+			"code": 400,
+		})
+		return
+	}
+
+	// 验证ID一致性
+	if uint(id) != req.ID {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg":  "URL中的ID与请求体中的ID不一致",
+			"code": 400,
+		})
+		return
+	}
+
+	// 调用Service层更新题目
+	if err := service.UpdateQuestionService(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg":  "更新题目失败：" + err.Error(),
+			"code": 400,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"msg":  "更新题目成功",
+		"code": 200,
+	})
+}
+
+// DeleteQuestion 删除题目
+func DeleteQuestion(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg":  "题目ID格式错误",
+			"code": 400,
+		})
+		return
+	}
+
+	// 调用Service层删除题目
+	if err := service.DeleteQuestionService(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"msg":  "删除题目失败：" + err.Error(),
+			"code": 500,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"msg":  "删除题目成功",
+		"code": 200,
+	})
+}

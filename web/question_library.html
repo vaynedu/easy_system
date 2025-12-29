@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>题库管理 - 简易多题型自动出题系统</title>
+    <style>
+        .container { width: 90%; margin: 20px auto; }
+        .module { margin: 30px 0; padding: 20px; border: 1px solid #eee; border-radius: 8px; }
+        button {
+            padding: 8px 15px; margin: 5px;
+            background-color: #4285F4; color: white; border: none; border-radius: 4px; cursor: pointer;
+        }
+        button:hover { background-color: #3367D6; }
+        select, input {
+            padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f5f5f5; }
+        .pagination { margin-top: 20px; text-align: center; }
+        .pagination button { margin: 0 5px; }
+        .edit-btn { background-color: #28a745; }
+        .delete-btn { background-color: #dc3545; }
+        .tag-label {
+            display: inline-block; padding: 2px 8px; margin: 2px;
+            background-color: #6c757d; color: white; border-radius: 4px; font-size: 12px;
+        }
+        .second-tag-label {
+            display: inline-block; padding: 2px 8px; margin: 2px;
+            background-color: #17a2b8; color: white; border-radius: 4px; font-size: 12px;
+        }
+        .search-box { margin: 10px 0; }
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white; margin: 5% auto; padding: 20px; border-radius: 8px;
+            width: 80%; max-width: 800px;
+        }
+        .close { float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>题库管理</h1>
+
+    <!-- 筛选和搜索模块 -->
+    <div class="module">
+        <h2>题目筛选</h2>
+        <select id="primaryTagFilter" onchange="loadSecondaryTagFilter()">
+            <option value="">全部一级分类</option>
+            <!-- 动态加载 -->
+        </select>
+        <select id="secondaryTagFilter">
+            <option value="">全部二级分类</option>
+            <!-- 联动加载 -->
+        </select>
+        <select id="questionTypeFilter">
+            <option value="">全部题型</option>
+            <option value="0">选择题</option>
+            <option value="1">填空题</option>
+            <option value="2">问答题</option>
+        </select>
+        <input type="text" id="searchKeyword" placeholder="关键词搜索（题干、答案等）" style="width: 300px;">
+        <button onclick="searchQuestions()">搜索</button>
+        <button onclick="resetFilter()">重置</button>
+    </div>
+
+    <!-- 题目列表模块 -->
+    <div class="module">
+        <h2>题目列表</h2>
+        <div id="questionListContainer">
+            <table id="questionTable">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>题型</th>
+                    <th>题干</th>
+                    <th>分类</th>
+                    <th>答案</th>
+                    <th>操作</th>
+                </tr>
+                </thead>
+                <tbody id="questionTableBody">
+                <!-- 动态加载 -->
+                </tbody>
+            </table>
+            <div class="pagination" id="pagination">
+                <!-- 分页按钮 -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 修改编辑模态框的HTML结构 -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeEditModal()">&times;</span>
+        <h2>编辑题目</h2>
+        <form id="editForm">
+            <input type="hidden" id="editId">
+
+            <!-- 使用表格布局确保对齐 -->
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <!-- 题型 -->
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label style="width: 100px; font-weight: bold; color: #333;">题型</label>
+                    <select id="editQuestionType" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        <option value="0">选择题</option>
+                        <option value="1">填空题</option>
+                        <option value="2">问答题</option>
+                    </select>
+                </div>
+
+                <!-- 题干 -->
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <label style="width: 100px; font-weight: bold; color: #333;">题干</label>
+                    <textarea id="editQuestionTitle" placeholder="题干" rows="4" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;"></textarea>
+                </div>
+
+                <!-- 选项组（仅在选择题时显示） -->
+                <div id="editOptionGroup" style="display: none; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="width: 100px; font-weight: bold; color: #333;">选项A</label>
+                        <input type="text" id="editOptionA" placeholder="选项A" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="width: 100px; font-weight: bold; color: #333;">选项B</label>
+                        <input type="text" id="editOptionB" placeholder="选项B" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="width: 100px; font-weight: bold; color: #333;">选项C</label>
+                        <input type="text" id="editOptionC" placeholder="选项C" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="width: 100px; font-weight: bold; color: #333;">选项D</label>
+                        <input type="text" id="editOptionD" placeholder="选项D" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                    </div>
+                </div>
+
+                <!-- 正确答案 -->
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label style="width: 100px; font-weight: bold; color: #333;">正确答案</label>
+                    <input type="text" id="editCorrectAnswer" placeholder="正确答案" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                </div>
+
+                <!-- 答案解析 -->
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <label style="width: 100px; font-weight: bold; color: #333;">答案解析</label>
+                    <textarea id="editAnswerAnalysis" placeholder="答案解析" rows="4" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;"></textarea>
+                </div>
+
+                <!-- 题目备注 -->
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <label style="width: 100px; font-weight: bold; color: #333;">题目备注</label>
+                    <textarea id="editQuestionRemark" placeholder="题目备注" rows="4" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;"></textarea>
+                </div>
+
+                <!-- 分类选择 -->
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                        <label style="width: 100px; font-weight: bold; color: #333;">一级分类</label>
+                        <select id="editTag" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                            <option value="">选择一级分类</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                        <label style="width: 100px; font-weight: bold; color: #333;">二级分类</label>
+                        <select id="editSecondTag" style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                            <option value="">选择二级分类</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div style="display: flex; gap: 15px; margin-top: 20px;">
+                    <button type="button" onclick="saveQuestion()" style="flex: 1; padding: 12px; background-color: #4285F4; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">保存</button>
+                    <button type="button" onclick="closeEditModal()" style="flex: 1; padding: 12px; background-color: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">取消</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+
+<script>
+    const baseUrl = "http://127.0.0.1:8080/api";
+    let tagTreeData = [];
+    let currentPage = 1;
+    const pageSize = 10;
+
+    window.onload = function() {
+        loadPrimaryTagFilter();
+        loadTagOptions();
+        loadQuestions();
+    };
+
+    // 加载一级分类筛选
+    function loadPrimaryTagFilter() {
+        const primaryTagSelect = document.getElementById("primaryTagFilter");
+        primaryTagSelect.innerHTML = '<option value="">全部一级分类</option>';
+
+        fetch(`${baseUrl}/tag/tree`, { method: "GET" })
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    tagTreeData = res.data;
+                    tagTreeData.forEach(primaryTag => {
+                        const option = document.createElement("option");
+                        option.value = primaryTag.name;
+                        option.textContent = primaryTag.name;
+                        primaryTagSelect.appendChild(option);
+                    });
+                }
+            });
+    }
+
+    // 联动加载二级分类筛选
+    function loadSecondaryTagFilter() {
+        const primaryTagValue = document.getElementById("primaryTagFilter").value;
+        const secondaryTagSelect = document.getElementById("secondaryTagFilter");
+        secondaryTagSelect.innerHTML = '<option value="">全部二级分类</option>';
+
+        if (!primaryTagValue) return;
+
+        const targetPrimaryTag = tagTreeData.find(item => item.name === primaryTagValue);
+        if (targetPrimaryTag && targetPrimaryTag.second_tag) {
+            targetPrimaryTag.second_tag.forEach(secondaryTag => {
+                const option = document.createElement("option");
+                option.value = secondaryTag;
+                option.textContent = secondaryTag;
+                secondaryTagSelect.appendChild(option);
+            });
+        }
+    }
+
+    // 编辑函数 修改 loadTagOptions 函数，确保它能正确加载分类数据
+    function loadTagOptions() {
+        const editTagSelect = document.getElementById("editTag");
+        editTagSelect.innerHTML = '<option value="">选择一级分类</option>';
+
+        // 检查 tagTreeData 是否已加载
+        if (tagTreeData.length === 0) {
+            // 如果未加载，先获取分类数据
+            fetch(`${baseUrl}/tag/tree`, { method: "GET" })
+                .then(res => res.json())
+                .then(res => {
+                    if (res.code === 200) {
+                        tagTreeData = res.data;
+                        // 重新加载选项
+                        loadTagOptions();
+                    }
+                });
+            return;
+        }
+
+        // 正常加载一级分类
+        tagTreeData.forEach(primaryTag => {
+            const option = document.createElement("option");
+            option.value = primaryTag.name;
+            option.textContent = primaryTag.name;
+            editTagSelect.appendChild(option);
+        });
+
+        // 监听一级分类变化
+        editTagSelect.onchange = function() {
+            const editSecondTagSelect = document.getElementById("editSecondTag");
+            editSecondTagSelect.innerHTML = '<option value="">选择二级分类</option>';
+
+            if (this.value) {
+                const targetPrimaryTag = tagTreeData.find(item => item.name === this.value);
+                if (targetPrimaryTag && targetPrimaryTag.second_tag) {
+                    targetPrimaryTag.second_tag.forEach(secondaryTag => {
+                        const option = document.createElement("option");
+                        option.value = secondaryTag;
+                        option.textContent = secondaryTag;
+                        editSecondTagSelect.appendChild(option);
+                    });
+                }
+            }
+        };
+    }
+
+    // 搜索题目
+    function searchQuestions() {
+        currentPage = 1;
+        loadQuestions();
+    }
+
+    // 重置筛选
+    function resetFilter() {
+        document.getElementById("primaryTagFilter").value = "";
+        document.getElementById("secondaryTagFilter").value = "";
+        document.getElementById("questionTypeFilter").value = "";
+        document.getElementById("searchKeyword").value = "";
+        loadSecondaryTagFilter(); // 重置二级分类
+        currentPage = 1;
+        loadQuestions();
+    }
+
+    // 加载题目列表
+    function loadQuestions() {
+        const primaryTag = document.getElementById("primaryTagFilter").value;
+        const secondaryTag = document.getElementById("secondaryTagFilter").value;
+        const questionType = document.getElementById("questionTypeFilter").value;
+        const keyword = document.getElementById("searchKeyword").value;
+
+        let params = new URLSearchParams({
+            page: currentPage,
+            size: pageSize
+        });
+
+        if (primaryTag) params.append('tag', primaryTag);
+        if (secondaryTag) params.append('second_tag', secondaryTag);
+        if (questionType) params.append('type', questionType);
+        if (keyword) params.append('keyword', keyword);
+
+        fetch(`${baseUrl}/questions?${params.toString()}`, { method: "GET" })
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    renderQuestionList(res.data.questions);
+                    renderPagination(res.data.total, res.data.page, res.data.size);
+                } else {
+                    alert("加载题目失败：" + res.msg);
+                }
+            })
+            .catch(err => {
+                alert("加载题目失败：" + err.message);
+            });
+    }
+
+    // 渲染题目列表
+    function renderQuestionList(questions) {
+        const tbody = document.getElementById("questionTableBody");
+        tbody.innerHTML = "";
+
+        questions.forEach(q => {
+            const row = document.createElement("tr");
+
+            let typeText = "";
+            switch (q.question_type) {
+                case 0: typeText = "选择题"; break;
+                case 1: typeText = "填空题"; break;
+                case 2: typeText = "问答题"; break;
+                default: typeText = "未知题型";
+            }
+
+            let tagHtml = "";
+            if (q.tag || q.second_tag) {
+                if (q.tag) tagHtml += `<span class="tag-label">${q.tag}</span>`;
+                if (q.second_tag) tagHtml += `<span class="second-tag-label">${q.second_tag}</span>`;
+            } else {
+                tagHtml = "无分类";
+            }
+
+            row.innerHTML = `
+                <td>${q.id}</td>
+                <td>${typeText}</td>
+                <td style="max-width: 300px; word-wrap: break-word;">${q.question_title}</td>
+                <td>${tagHtml}</td>
+                <td>${q.correct_answer}</td>
+                <td>
+                    <button class="edit-btn" onclick="editQuestion(${q.id})">编辑</button>
+                    <button class="delete-btn" onclick="deleteQuestion(${q.id})">删除</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    // 渲染分页
+    function renderPagination(total, currentPage, pageSize) {
+        const totalPages = Math.ceil(total / pageSize);
+        const pagination = document.getElementById("pagination");
+
+        let html = '';
+        if (currentPage > 1) {
+            html += `<button onclick="goToPage(${currentPage - 1})">上一页</button>`;
+        }
+
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === currentPage) {
+                html += `<button style="background-color: #007bff; color: white;">${i}</button>`;
+            } else {
+                html += `<button onclick="goToPage(${i})">${i}</button>`;
+            }
+        }
+
+        if (currentPage < totalPages) {
+            html += `<button onclick="goToPage(${currentPage + 1})">下一页</button>`;
+        }
+
+        pagination.innerHTML = html;
+    }
+
+    // 跳转到指定页
+    function goToPage(page) {
+        currentPage = page;
+        loadQuestions();
+    }
+
+    // 编辑题目
+    function editQuestion(id) {
+        fetch(`${baseUrl}/question/${id}`, { method: "GET" })
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    const q = res.data;
+                    document.getElementById("editId").value = q.id;
+                    document.getElementById("editQuestionType").value = q.question_type;
+                    document.getElementById("editQuestionTitle").value = q.question_title;
+                    document.getElementById("editOptionA").value = q.option_a || "";
+                    document.getElementById("editOptionB").value = q.option_b || "";
+                    document.getElementById("editOptionC").value = q.option_c || "";
+                    document.getElementById("editOptionD").value = q.option_d || "";
+                    document.getElementById("editCorrectAnswer").value = q.correct_answer;
+                    document.getElementById("editAnswerAnalysis").value = q.answer_analysis || "";
+                    document.getElementById("editQuestionRemark").value = q.question_remark || "";
+
+                    // 设置分类前确保分类数据已加载
+                    if (tagTreeData.length === 0) {
+                        fetch(`${baseUrl}/tag/tree`, { method: "GET" })
+                            .then(res => res.json())
+                            .then(res => {
+                                if (res.code === 200) {
+                                    tagTreeData = res.data;
+                                    setCategoryValues(q);
+                                }
+                            });
+                    } else {
+                        setCategoryValues(q);
+                    }
+
+                    toggleOptionGroup(q.question_type);
+                    document.getElementById("editModal").style.display = "block";
+                } else {
+                    alert("获取题目信息失败：" + res.msg);
+                }
+            });
+    }
+
+    // 新增辅助函数设置分类值
+    function setCategoryValues(question) {
+        // 设置一级分类
+        document.getElementById("editTag").value = question.tag || "";
+        // 触发二级分类加载
+        document.getElementById("editTag").onchange();
+        setTimeout(() => {
+            document.getElementById("editSecondTag").value = question.second_tag || "";
+        }, 100);
+    }
+
+
+    // 题型联动选项显示
+    function toggleOptionGroup(type) {
+        const optionGroup = document.getElementById("editOptionGroup");
+        if (type === 0) {
+            optionGroup.style.display = "block";
+        } else {
+            optionGroup.style.display = "none";
+        }
+    }
+
+    // 保存题目
+    function saveQuestion() {
+        const id = document.getElementById("editId").value;
+        const data = {
+            id: parseInt(id),
+            question_type: parseInt(document.getElementById("editQuestionType").value),
+            question_title: document.getElementById("editQuestionTitle").value.trim(),
+            option_a: document.getElementById("editOptionA").value.trim(),
+            option_b: document.getElementById("editOptionB").value.trim(),
+            option_c: document.getElementById("editOptionC").value.trim(),
+            option_d: document.getElementById("editOptionD").value.trim(),
+            correct_answer: document.getElementById("editCorrectAnswer").value.trim(),
+            answer_analysis: document.getElementById("editAnswerAnalysis").value.trim(),
+            question_remark: document.getElementById("editQuestionRemark").value.trim(),
+            tag: document.getElementById("editTag").value.trim(),
+            second_tag: document.getElementById("editSecondTag").value.trim()
+        };
+
+        fetch(`${baseUrl}/question/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        })
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    alert("保存成功！");
+                    closeEditModal();
+                    loadQuestions(); // 重新加载列表
+                } else {
+                    alert("保存失败：" + res.msg);
+                }
+            })
+            .catch(err => {
+                alert("保存失败：" + err.message);
+            });
+    }
+
+    // 删除题目
+    function deleteQuestion(id) {
+        if (confirm("确定要删除这道题目吗？")) {
+            fetch(`${baseUrl}/question/${id}`, {
+                method: "DELETE"
+            })
+                .then(res => res.json())
+                .then(res => {
+                    if (res.code === 200) {
+                        alert("删除成功！");
+                        loadQuestions(); // 重新加载列表
+                    } else {
+                        alert("删除失败：" + res.msg);
+                    }
+                })
+                .catch(err => {
+                    alert("删除失败：" + err.message);
+                });
+        }
+    }
+
+    // 关闭编辑模态框
+    function closeEditModal() {
+        document.getElementById("editModal").style.display = "none";
+    }
+
+    // 题型变化时联动选项显示
+    document.getElementById("editQuestionType").onchange = function() {
+        toggleOptionGroup(this.value);
+    };
+</script>
+</body>
+</html>
