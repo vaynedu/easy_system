@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/vaynedu/exam_system/config"
@@ -610,9 +611,24 @@ func ExportExcelQuestion(c *gin.Context) {
 		}
 	}
 
+	// 生成带时间戳的文件名
+	timestamp := time.Now().Format("20060102150405") // 格式：年月日时分秒
+	var filename string
+
+	// 根据导出类型生成不同的文件名
+	if req.ExportAll {
+		filename = fmt.Sprintf("all_%s.xlsx", timestamp)
+	} else if len(req.IDs) > 0 {
+		filename = fmt.Sprintf("selected_%s.xlsx", timestamp)
+	} else if req.Tag != "" || req.SecondTag != "" || req.QuestionType != "" || req.Keyword != "" {
+		filename = fmt.Sprintf("filtered_%s.xlsx", timestamp)
+	} else {
+		filename = fmt.Sprintf("questions_%s.xlsx", timestamp)
+	}
+
 	// 设置文件下载响应头
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=questions.xlsx")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 
 	// 将Excel文件写入响应
 	err = file.Write(c.Writer)
