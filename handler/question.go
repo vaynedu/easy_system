@@ -8,7 +8,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/vaynedu/exam_system/config"
+	"github.com/vaynedu/exam_system/consts"
+	"github.com/vaynedu/exam_system/dao"
 	"github.com/vaynedu/exam_system/model"
+	"github.com/vaynedu/exam_system/service"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -23,50 +26,9 @@ func AddQuestion(c *gin.Context) {
 		return
 	}
 
-	// 1. 题型合法性校验（0/1/2）
-	if req.QuestionType != 0 && req.QuestionType != 1 && req.QuestionType != 2 {
+	// 调用Service层处理业务逻辑
+	if err := service.AddQuestionService(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"msg": "题型无效！仅支持0（选择题）、1（填空题）、2（问答题）",
-		})
-		return
-	}
-
-	// 2. 通用校验：题干和正确答案不能为空
-	if req.QuestionTitle == "" || req.CorrectAnswer == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"msg": "题干和正确答案不能为空！",
-		})
-		return
-	}
-
-	// 3. 选择题专属校验
-	if req.QuestionType == 0 {
-		if req.OptionA == "" || req.OptionB == "" || req.OptionC == "" || req.OptionD == "" {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"msg": "选择题的选项A-D不能为空！",
-			})
-			return
-		}
-		// 校验选择题答案
-		validAnswers := []string{"A", "B", "C", "D"}
-		isValid := false
-		for _, a := range validAnswers {
-			if strings.ToUpper(req.CorrectAnswer) == a {
-				isValid = true
-				break
-			}
-		}
-		if !isValid {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"msg": "选择题正确答案只能是A/B/C/D！",
-			})
-			return
-		}
-	}
-
-	// 4. GORM插入数据，排除时间字段以使用数据库自动时间
-	if err := config.DB.Omit("CreatedAt").Create(&req).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
 			"msg": "新增题目失败：" + err.Error(),
 		})
 		return
@@ -160,6 +122,8 @@ func ImportExcelQuestion(c *gin.Context) {
 		answer := strings.TrimSpace(strings.ToUpper(row[6]))
 		analysis := strings.TrimSpace(row[7])
 		remark := strings.TrimSpace(row[8])
+		tag := strings.TrimSpace(row[9])        // 一级分类
+		secondTag := strings.TrimSpace(row[10]) // 二级分类
 
 		// 题型转换与校验
 		typeInt, err := strconv.Atoi(typeStr)
@@ -198,6 +162,31 @@ func ImportExcelQuestion(c *gin.Context) {
 			}
 		}
 
+		// 【核心修改】使用新的Tag校验函数
+		if tag != "" {
+			if !consts.IsValidPrimaryTag(tag) {
+				failCount++
+				invalidRow = i + 1
+				continue
+			}
+			if secondTag == "" {
+				failCount++
+				invalidRow = i + 1
+				continue
+			}
+			if !consts.IsSecondaryOfPrimary(tag, secondTag) {
+				failCount++
+				invalidRow = i + 1
+				continue
+			}
+		} else {
+			if secondTag != "" {
+				failCount++
+				invalidRow = i + 1
+				continue
+			}
+		}
+
 		// 构造题目对象
 		questions = append(questions, model.ExamQuestion{
 			QuestionType:   int8(typeInt),
@@ -209,13 +198,15 @@ func ImportExcelQuestion(c *gin.Context) {
 			CorrectAnswer:  answer,
 			AnswerAnalysis: analysis,
 			QuestionRemark: remark,
+			Tag:            tag,
+			SecondTag:      secondTag,
 		})
 		successCount++
 	}
 
 	// GORM批量插入（每100条一批，避免单次插入过多）
 	if len(questions) > 0 {
-		if err := config.DB.CreateInBatches(&questions, 100).Error; err != nil {
+		if err := dao.NewQuestionDao(config.DB).CreateQuestionsInBatches(questions, 100); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"msg": "批量插入题目失败：" + err.Error(),
 			})

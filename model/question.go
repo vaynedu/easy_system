@@ -16,7 +16,9 @@ type ExamQuestion struct {
 	CorrectAnswer  string    `gorm:"column:correct_answer;type:varchar(1000);not null" json:"correct_answer"`
 	AnswerAnalysis string    `gorm:"column:answer_analysis;type:varchar(2000);default:''" json:"answer_analysis"`
 	QuestionRemark string    `gorm:"column:question_remark;type:varchar(500);default:''" json:"question_remark"`
-	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"` // 自动生成创建时间
+	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`               // 自动生成创建时间
+	Tag            string    `gorm:"column:tag;type:varchar(50);default:''" json:"tag"`                // 对应一级分类（KnowledgeTree.Name）
+	SecondTag      string    `gorm:"column:second_tag;type:varchar(100);default:''" json:"second_tag"` // 对应二级分类（KnowledgeTree.SecondTag）
 }
 
 // TableName 指定表名（GORM默认复数，需显式指定）
