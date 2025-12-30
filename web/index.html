@@ -168,88 +168,52 @@
 
     // 加载统计信息
     function loadStatistics() {
-        // 获取总题目数和各题型数量
-        fetch(`${baseUrl}/questions?page=1&size=1`, { method: "GET" })
+        // 获取系统统计
+        fetch(`${baseUrl}/statistics`, { method: "GET" })
             .then(res => res.json())
             .then(res => {
                 if (res.code === 200) {
-                    const total = res.data.total;
-                    document.getElementById("totalQuestions").innerText = total;
-
-                    // 获取各题型统计
-                    getQuestionTypeStats();
+                    document.getElementById("totalQuestions").innerText = res.data.total_questions;
+                    document.getElementById("choiceQuestions").innerText = res.data.choice_questions;
+                    document.getElementById("fillQuestions").innerText = res.data.fill_questions;
+                    document.getElementById("essayQuestions").innerText = res.data.essay_questions;
                 }
             })
             .catch(err => {
-                console.error("获取统计信息失败：", err);
+                console.error("获取系统统计失败：", err);
             });
 
         // 获取分类统计
         loadTagStatistics();
     }
 
-    // 获取各题型统计
-    function getQuestionTypeStats() {
-        // 获取选择题数量
-        fetch(`${baseUrl}/questions?type=0&page=1&size=1`, { method: "GET" })
-            .then(res => res.json())
-            .then(res => {
-                if (res.code === 200) {
-                    document.getElementById("choiceQuestions").innerText = res.data.total;
-                }
-            });
-
-        // 获取填空题数量
-        fetch(`${baseUrl}/questions?type=1&page=1&size=1`, { method: "GET" })
-            .then(res => res.json())
-            .then(res => {
-                if (res.code === 200) {
-                    document.getElementById("fillQuestions").innerText = res.data.total;
-                }
-            });
-
-        // 获取问答题数量
-        fetch(`${baseUrl}/questions?type=2&page=1&size=1`, { method: "GET" })
-            .then(res => res.json())
-            .then(res => {
-                if (res.code === 200) {
-                    document.getElementById("essayQuestions").innerText = res.data.total;
-                }
-            });
-    }
-
     // 加载分类统计
     function loadTagStatistics() {
-        fetch(`${baseUrl}/tag/tree`, { method: "GET" })
+        fetch(`${baseUrl}/tagStatistics`, { method: "GET" })
             .then(res => res.json())
             .then(res => {
                 if (res.code === 200) {
                     const tagStatsDiv = document.getElementById("tagStats");
                     tagStatsDiv.innerHTML = '';
 
-                    res.data.forEach(primaryTag => {
-                        // 获取该一级分类下的题目数量
-                        fetch(`${baseUrl}/questions?tag=${encodeURIComponent(primaryTag.name)}&page=1&size=1`, { method: "GET" })
-                            .then(subRes => subRes.json())
-                            .then(subRes => {
-                                if (subRes.code === 200) {
-                                    const tagItem = document.createElement("div");
-                                    tagItem.className = "tag-item";
-                                    tagItem.innerHTML = `
-                                            <span class="tag-name">${primaryTag.name}</span>
-                                            <span class="tag-count">${subRes.data.total}</span>
-                                        `;
-                                    tagStatsDiv.appendChild(tagItem);
-                                }
-                            })
-                            .catch(err => {
-                                console.error("获取分类统计失败：", err);
-                            });
-                    });
+                    for (const [tagName, count] of Object.entries(res.data)) {
+                        const tagItem = document.createElement("div");
+                        tagItem.className = "tag-item";
+                        tagItem.innerHTML = `                            <span class="tag-name">${tagName}</span>
+                                <span class="tag-count">${count}</span>
+                            `;
+                        tagStatsDiv.appendChild(tagItem);
+                    }
+
+                    // 如果没有分类数据，显示提示
+                    if (Object.keys(res.data).length === 0) {
+                        tagStatsDiv.innerHTML = '<p style="color: #999; text-align: center;">暂无分类数据</p>';
+                    }
                 }
             })
             .catch(err => {
-                console.error("获取分类树失败：", err);
+                console.error("获取分类统计失败：", err);
+                document.getElementById("tagStats").innerHTML = '<p style="color: #999; text-align: center;">加载分类统计失败</p>';
             });
     }
 
