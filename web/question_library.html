@@ -274,8 +274,9 @@
                 <!-- 正确答案 -->
                 <div class="edit-form-row">
                     <label class="edit-form-label">正确答案</label>
-                    <input type="text" id="editCorrectAnswer" placeholder="正确答案" class="edit-form-control">
+                    <textarea id="editCorrectAnswer" placeholder="正确答案（A/B/C/D）" rows="10" class="edit-form-control"></textarea>
                 </div>
+
 
                 <!-- 答案解析 -->
                 <div class="edit-form-row">
@@ -631,8 +632,10 @@
         const optionGroup = document.getElementById("editOptionGroup");
         if (type === 0) {
             optionGroup.style.display = "flex";
+            document.getElementById("editCorrectAnswer").placeholder = "正确答案（A/B/C/D）";
         } else {
             optionGroup.style.display = "none";
+            document.getElementById("editCorrectAnswer").placeholder = "正确答案";
         }
     }
 
