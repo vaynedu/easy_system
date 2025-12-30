@@ -33,6 +33,11 @@ func InitRouter() *gin.Engine {
 		// 专项练习相关接口
 		r.GET("/api/specialQuestions", handler.GetSpecialQuestionsByFilter)
 
+		// 统计相关接口
+		r.GET("/api/statistics", handler.GetStatistics)
+		r.GET("/api/questionTypeCount", handler.GetQuestionTypeCount)
+		r.GET("/api/tagStatistics", handler.GetTagStatistics)
+
 		// 题库管理相关路由
 		api.GET("/questions", handler.GetQuestionsByFilter) // 获取题目列表（带筛选）
 		api.GET("/question/:id", handler.GetQuestionByID)   // 获取题目详情
