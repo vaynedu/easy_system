@@ -37,6 +37,7 @@ func (q *QuestionDao) GetRandomQuestions(limit int) ([]model.ExamQuestion, error
 // GetRandomQuestionsByTag 根据标签随机获取指定数量的题目
 func (q *QuestionDao) GetRandomQuestionsByTag(tag, secondTag string, limit int) ([]model.ExamQuestion, error) {
 	var questions []model.ExamQuestion
+	// TODO mysql的随机依靠排序，性能很差，需要从业务层去控制
 	query := q.db.Order("RAND()").Limit(limit)
 
 	// 如果指定了标签，则添加标签过滤条件
