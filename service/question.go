@@ -233,7 +233,7 @@ func ImportExcelQuestions(fileReader io.Reader) (successCount, failCount, invali
 	}
 
 	// 4. 解析&校验每行数据
-	var questions []model.ExamQuestion
+	var questions []*model.ExamQuestion
 	invalidRow = 0
 	for i := 1; i < len(rows); i++ {
 		row := rows[i]
@@ -252,7 +252,7 @@ func ImportExcelQuestions(fileReader io.Reader) (successCount, failCount, invali
 			continue
 		}
 
-		questions = append(questions, *question)
+		questions = append(questions, question)
 		successCount++
 	}
 
@@ -312,7 +312,7 @@ func parseAndValidateRow(row []string, rowIdx int) (*model.ExamQuestion, error) 
 	}
 
 	// 4. 标签校验（调用consts层）
-	if err := validateTagRelation(tag, secondTag); err != nil {
+	if err = validateTagRelation(tag, secondTag); err != nil {
 		return nil, err
 	}
 

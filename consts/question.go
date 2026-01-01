@@ -8,3 +8,30 @@ const (
 	QuestionImportTypeAiAli
 	QuestionImportTypeAiYunWu
 )
+
+// 题目类型 0=选择题，1=填空题，2=问答题
+const (
+	QuestionTypeChoice = iota
+	QuestionTypeFillInTheBlank
+	QuestionTypeShortAnswer
+)
+
+func CheckQuestionType(questionType int) bool {
+	switch questionType {
+	case QuestionTypeChoice, QuestionTypeFillInTheBlank, QuestionTypeShortAnswer:
+		return true
+	}
+	return false
+}
+
+func GetQuestionTypeName(questionType int) string {
+	switch questionType {
+	case QuestionTypeChoice:
+		return "选择题"
+	case QuestionTypeFillInTheBlank:
+		return "填空题"
+	case QuestionTypeShortAnswer:
+		return "简答题"
+	}
+	return "未知"
+}

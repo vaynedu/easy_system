@@ -23,8 +23,8 @@ func (q *QuestionDao) CreateQuestion(question *model.ExamQuestion) error {
 }
 
 // CreateQuestionsInBatches 批量创建题目
-func (q *QuestionDao) CreateQuestionsInBatches(questions []model.ExamQuestion, batchSize int) error {
-	return q.db.CreateInBatches(&questions, batchSize).Error
+func (q *QuestionDao) CreateQuestionsInBatches(questions []*model.ExamQuestion, batchSize int) error {
+	return q.db.CreateInBatches(questions, batchSize).Error
 }
 
 // GetRandomQuestions 随机获取指定数量的题目

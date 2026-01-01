@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>AI题目生成 - 简易多题型自动出题系统</title>
+    <style>
+        .container { width: 90%; margin: 20px auto; }
+        .module { margin: 30px 0; padding: 20px; border: 1px solid #eee; border-radius: 8px; }
+        button {
+            padding: 8px 15px; margin: 5px;
+            background-color: #4285F4; color: white; border: none; border-radius: 4px; cursor: pointer;
+        }
+        button:hover { background-color: #3367D6; }
+        button:disabled {
+            background-color: #ccc; cursor: not-allowed;
+        }
+        select, input, textarea {
+            padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px;
+        }
+        textarea {
+            width: 500px; height: 100px;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f5f5f5; }
+        .pagination { margin-top: 20px; text-align: center; }
+        .pagination button { margin: 0 5px; }
+        .question-item {
+            margin: 20px 0; padding: 15px; border: 1px solid #eee; border-radius: 6px;
+            background-color: #f9f9f9;
+        }
+        .question-type {
+            display: inline-block; padding: 2px 8px; margin-right: 10px;
+            background-color: #4285F4; color: white; border-radius: 4px; font-size: 12px;
+        }
+        .tag-label {
+            display: inline-block; padding: 2px 8px; margin: 2px;
+            background-color: #6c757d; color: white; border-radius: 4px; font-size: 12px;
+        }
+        .second-tag-label {
+            display: inline-block; padding: 2px 8px; margin: 2px;
+            background-color: #17a2b8; color: white; border-radius: 4px; font-size: 12px;
+        }
+        .correct-answer { color: #28a745; font-weight: bold; }
+        .analysis { color: #666; margin: 5px 0; }
+        .remark { color: #999; font-style: italic; font-size: 14px; }
+        h1 { color: #333; border-bottom: 2px solid #4285F4; padding-bottom: 10px; }
+        .form-group {
+            margin: 15px 0;
+        }
+        .form-label {
+            display: inline-block; width: 120px; text-align: right;
+            font-weight: bold;
+        }
+        .required {
+            color: red;
+        }
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .generate-result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>AI题目生成</h1>
+
+    <!-- AI题目生成参数配置 -->
+    <div class="module">
+        <h2>生成参数配置</h2>
+        <form id="generateForm">
+            <div class="form-group">
+                <label class="form-label">题目类型：<span class="required">*</span></label>
+                <select id="questionType" required>
+                    <option value="2">问答题</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">一级分类：<span class="required">*</span></label>
+                <select id="primaryTag" required>
+                    <option value="">请选择一级分类</option>
+                    <!-- 动态加载一级分类 -->
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">二级分类：<span class="required">*</span></label>
+                <select id="secondaryTag" required>
+                    <option value="">请先选择一级分类</option>
+                    <!-- 联动加载二级分类 -->
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">生成数量：<span class="required">*</span></label>
+                <input type="number" id="generateCount" min="1" max="10" value="5" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">生成要求：</label>
+                <textarea id="generateRequirements" placeholder="请输入题目生成的具体要求，例如：难度适中，覆盖知识点全面，结合实际应用场景等"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">&nbsp;</label>
+                <button type="button" id="generateBtn" onclick="generateQuestions()">生成题目</button>
+                <button type="button" id="resetBtn" onclick="resetForm()">重置</button>
+            </div>
+        </form>
+        
+        <!-- 生成状态显示 -->
+        <div id="generateStatus" style="margin-top: 20px;"></div>
+    </div>
+
+    <!-- 生成结果展示 -->
+    <div class="module">
+        <h2>生成结果展示</h2>
+        <div id="resultList">
+            <p style="color: #666;">请先配置生成参数并点击"生成题目"按钮</p>
+        </div>
+        <div class="pagination" id="pagination">
+            <!-- 分页按钮 -->
+        </div>
+    </div>
+</div>
+
+<script>
+    const baseUrl = "http://127.0.0.1:8080/api";
+    let tagTreeData = []; // 缓存分类树数据
+    let currentPage = 1;
+    const pageSize = 10;
+    let generatedQuestions = []; // 缓存生成的题目
+
+    // 页面加载初始化
+    window.onload = function() {
+        loadPrimaryTags();
+    }
+
+    // 加载一级分类数据
+    function loadPrimaryTags() {
+        const primaryTagSelect = document.getElementById("primaryTag");
+        primaryTagSelect.innerHTML = '<option value="">请选择一级分类</option>';
+
+        fetch(`${baseUrl}/tag/tree`, { method: "GET" })
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    tagTreeData = res.data;
+                    // 渲染一级分类选项
+                    tagTreeData.forEach(primaryTag => {
+                        const option = document.createElement("option");
+                        option.value = primaryTag.name;
+                        option.textContent = primaryTag.name;
+                        primaryTagSelect.appendChild(option);
+                    });
+                } else {
+                    console.error("加载分类数据失败：", res.msg);
+                    showStatus("分类数据加载失败！", "error");
+                }
+            })
+            .catch(err => {
+                console.error("加载分类异常：", err);
+                showStatus("分类数据加载异常！", "error");
+            });
+    }
+
+    // 联动加载二级分类数据
+    function loadSecondaryTags() {
+        const primaryTagValue = document.getElementById("primaryTag").value;
+        const secondaryTagSelect = document.getElementById("secondaryTag");
+        secondaryTagSelect.innerHTML = '';
+
+        if (!primaryTagValue) {
+            const defaultOption = document.createElement("option");
+            defaultOption.value = "";
+            defaultOption.textContent = "请先选择一级分类";
+            secondaryTagSelect.appendChild(defaultOption);
+            return;
+        }
+
+        const targetPrimaryTag = tagTreeData.find(item => item.name === primaryTagValue);
+        if (targetPrimaryTag && targetPrimaryTag.second_tag && targetPrimaryTag.second_tag.length > 0) {
+            // 渲染二级分类选项
+            targetPrimaryTag.second_tag.forEach(secondaryTag => {
+                const option = document.createElement("option");
+                option.value = secondaryTag;
+                option.textContent = secondaryTag;
+                secondaryTagSelect.appendChild(option);
+            });
+        } else {
+            const noOption = document.createElement("option");
+            noOption.value = "";
+            noOption.textContent = "该一级分类无二级分类";
+            secondaryTagSelect.appendChild(noOption);
+        }
+    }
+
+    // 监听一级分类变化，联动加载二级分类
+    document.getElementById("primaryTag").addEventListener("change", loadSecondaryTags);
+
+    // 显示状态信息
+    function showStatus(message, type = "info") {
+        const statusDiv = document.getElementById("generateStatus");
+        statusDiv.className = type;
+        statusDiv.innerHTML = `<p>${message}</p>`;
+    }
+
+    // 生成题目
+    function generateQuestions() {
+        const generateBtn = document.getElementById("generateBtn");
+        const resultList = document.getElementById("resultList");
+        
+        // 禁用生成按钮
+        generateBtn.disabled = true;
+        generateBtn.textContent = "生成中...";
+        
+        // 显示加载状态
+        showStatus("题目生成中，请等待...（预计10-30秒）", "loading");
+        resultList.innerHTML = '<p class="loading">正在生成题目，请稍候...</p>';
+        
+        // 获取表单数据
+        const questionType = document.getElementById("questionType").value;
+        const primaryTag = document.getElementById("primaryTag").value;
+        const secondaryTag = document.getElementById("secondaryTag").value;
+        const generateCount = document.getElementById("generateCount").value;
+        const generateRequirements = document.getElementById("generateRequirements").value;
+        
+        // 构造请求参数
+        const requestData = {
+            question_type: parseInt(questionType),
+            tag: primaryTag,
+            second_tag: secondaryTag,
+            count: parseInt(generateCount),
+            requirements: generateRequirements
+        };
+        
+        // 发送请求
+        fetch(`${baseUrl}/generateAIQuestion`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(res => res.json())
+        .then(res => {
+            generateBtn.disabled = false;
+            generateBtn.textContent = "生成题目";
+            
+            if (res.code === 200) {
+                showStatus("题目生成成功！", "success");
+                generatedQuestions = res.data || [];
+                currentPage = 1;
+                renderGeneratedQuestions();
+            } else {
+                showStatus(`题目生成失败：${res.msg}`, "error");
+                resultList.innerHTML = `<p class="error">题目生成失败：${res.msg}</p>`;
+            }
+        })
+        .catch(err => {
+            generateBtn.disabled = false;
+            generateBtn.textContent = "生成题目";
+            showStatus(`题目生成异常：${err.message}`, "error");
+            resultList.innerHTML = `<p class="error">题目生成异常：${err.message}</p>`;
+        });
+    }
+
+    // 渲染生成的题目
+    function renderGeneratedQuestions() {
+        const list = document.getElementById("resultList");
+        
+        if (generatedQuestions.length === 0) {
+            list.innerHTML = '<p style="color: #666;">没有生成任何题目</p>';
+            return;
+        }
+        
+        // 分页处理
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, generatedQuestions.length);
+        const pageQuestions = generatedQuestions.slice(startIndex, endIndex);
+        
+        let html = '';
+        pageQuestions.forEach((q, index) => {
+            // 题型转换
+            let typeText = "";
+            let typeColor = "";
+            switch (q.question_type) {
+                case 0:
+                    typeText = "选择题";
+                    typeColor = "#4285F4";
+                    break;
+                case 1:
+                    typeText = "填空题";
+                    typeColor = "#28a745";
+                    break;
+                case 2:
+                    typeText = "问答题";
+                    typeColor = "#ffc107";
+                    break;
+                default:
+                    typeText = "未知题型";
+                    typeColor = "#6c757d";
+            }
+
+            // 拼接HTML
+            html += `
+                <div class="question-item">
+                    <h4>
+                        <span class="question-type" style="background-color: ${typeColor}">${typeText}</span>
+                        ${startIndex + index + 1}. ${q.question_title}
+                    </h4>
+            `;
+
+            // 显示分类标签
+            if (q.tag || q.second_tag) {
+                html += `<div style="margin: 8px 0;">`;
+                if (q.tag) {
+                    html += `<span class="tag-label">一级分类：${q.tag}</span>`;
+                }
+                if (q.second_tag) {
+                    html += `<span class="second-tag-label">二级分类：${q.second_tag}</span>`;
+                }
+                html += `</div>`;
+            }
+
+            // 选择题显示选项
+            if (q.question_type === 0) {
+                html += `
+                    <p>A. ${q.option_a}</p>
+                    <p>B. ${q.option_b}</p>
+                    <p>C. ${q.option_c}</p>
+                    <p>D. ${q.option_d}</p>
+                `;
+            }
+
+            // 答案、解析、备注
+            html += `
+                <p class="correct-answer">正确答案：${q.correct_answer}</p>
+                <p class="analysis">解析：${q.answer_analysis || "无解析"}</p>
+                <p class="remark">备注：${q.question_remark || "无备注"}</p>
+            `;
+
+            html += `</div>`;
+        });
+        
+        list.innerHTML = html;
+        
+        // 渲染分页
+        renderPagination(generatedQuestions.length, currentPage, pageSize);
+    }
+
+    // 渲染分页
+    function renderPagination(total, currentPage, pageSize) {
+        const totalPages = Math.ceil(total / pageSize);
+        const pagination = document.getElementById("pagination");
+        
+        if (totalPages <= 1) {
+            pagination.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        if (currentPage > 1) {
+            html += `<button onclick="goToPage(${currentPage - 1})">上一页</button>`;
+        }
+
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === currentPage) {
+                html += `<button style="background-color: #007bff; color: white;">${i}</button>`;
+            } else {
+                html += `<button onclick="goToPage(${i})">${i}</button>`;
+            }
+        }
+
+        if (currentPage < totalPages) {
+            html += `<button onclick="goToPage(${currentPage + 1})">下一页</button>`;
+        }
+
+        pagination.innerHTML = html;
+    }
+
+    // 跳转到指定页
+    function goToPage(page) {
+        currentPage = page;
+        renderGeneratedQuestions();
+    }
+
+    // 重置表单
+    function resetForm() {
+        document.getElementById("generateForm").reset();
+        document.getElementById("secondaryTag").innerHTML = '<option value="">请先选择一级分类</option>';
+        document.getElementById("generateStatus").innerHTML = '';
+        document.getElementById("resultList").innerHTML = '<p style="color: #666;">请先配置生成参数并点击"生成题目"按钮</p>';
+        document.getElementById("pagination").innerHTML = '';
+        generatedQuestions = [];
+        currentPage = 1;
+    }
+</script>
+</body>
+</html>

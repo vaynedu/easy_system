@@ -99,7 +99,7 @@ func ImportExcelQuestionV1(c *gin.Context) {
 	}
 
 	// 解析Excel数据
-	var questions []model.ExamQuestion
+	var questions []*model.ExamQuestion
 	successCount := 0
 	failCount := 0
 	invalidRow := 0
@@ -189,7 +189,7 @@ func ImportExcelQuestionV1(c *gin.Context) {
 		}
 
 		// 构造题目对象
-		questions = append(questions, model.ExamQuestion{
+		questions = append(questions, &model.ExamQuestion{
 			QuestionType:   int8(typeInt),
 			QuestionTitle:  title,
 			OptionA:        optA,

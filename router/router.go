@@ -30,6 +30,7 @@ func InitRouter() *gin.Engine {
 		api.POST("/exportExcelQuestion", handler.ExportExcelQuestion) // Excel导出
 		api.GET("/getRandom10", handler.GetRandom10Questions)         // 随机抽10题
 		api.GET("/tag/tree", handler.GetTagTree)                      // 获取标签树
+		api.POST("/generateAIQuestion", handler.GenerateAIQuestion)   // AI生成题目
 		// 专项练习相关接口
 		r.GET("/api/specialQuestions", handler.GetSpecialQuestionsByFilter)
 
