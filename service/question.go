@@ -67,7 +67,10 @@ func AddQuestionService(question *model.ExamQuestion) error {
 		}
 	}
 
-	// 4. 调用DAO层插入数据
+	// 4.题目上传方式
+	question.UploadType = consts.QuestionImportTypeManual
+
+	// 5. 调用DAO层插入数据
 	return dao.NewQuestionDao(config.DB).CreateQuestion(question)
 }
 
@@ -326,6 +329,7 @@ func parseAndValidateRow(row []string, rowIdx int) (*model.ExamQuestion, error) 
 		QuestionRemark: remark,
 		Tag:            tag,
 		SecondTag:      secondTag,
+		UploadType:     consts.QuestionImportTypeExcel,
 	}, nil
 }
 

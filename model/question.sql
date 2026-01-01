@@ -1,8 +1,8 @@
 DROP TABLE IF EXISTS exam_questions;
 CREATE TABLE IF NOT EXISTS exam_questions (
-                                              id INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '题目唯一自增ID',
-                                              question_type TINYINT NOT NULL COMMENT '题型：0=选择题，1=填空题，2=问答题',
-                                              question_title VARCHAR(500) NOT NULL COMMENT '题干内容',
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '题目唯一自增ID',
+    question_type TINYINT NOT NULL COMMENT '题型：0=选择题，1=填空题，2=问答题',
+    question_title VARCHAR(500) NOT NULL COMMENT '题干内容',
     option_a VARCHAR(200) DEFAULT '' COMMENT '选项A（仅选择题有效）',
     option_b VARCHAR(200) DEFAULT '' COMMENT '选项B（仅选择题有效）',
     option_c VARCHAR(200) DEFAULT '' COMMENT '选项C（仅选择题有效）',
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS exam_questions (
     update_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE  CURRENT_TIMESTAMP COMMENT '更新时间',
     upload_type TINYINT(1) NOT NULL COMMENT '题目录入方式，默认0=手动 1=excel表格 2=豆包AI 3=阿里AI 4=云雾AI',
     PRIMARY KEY (id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT '多题型通用题库表（选择/填空/问答）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT '多题型通用题库表（选择/填空/问答）';
 
 
 -- 给现有题库表新增一级分类（tag）、二级分类（second_tag）字段

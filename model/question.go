@@ -19,6 +19,8 @@ type ExamQuestion struct {
 	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`               // 自动生成创建时间
 	Tag            string    `gorm:"column:tag;type:varchar(50);default:''" json:"tag"`                // 对应一级分类（KnowledgeTree.Name）
 	SecondTag      string    `gorm:"column:second_tag;type:varchar(100);default:''" json:"second_tag"` // 对应二级分类（KnowledgeTree.SecondTag）
+	UpdatedAt      time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	UploadType     int8      `gorm:"column:upload_type;not null" json:"upload_type"` // 题目录入方式，默认0=手动 1=excel表格 2=豆包AI 3=阿里AI 4=云雾AI
 }
 
 // TableName 指定表名（GORM默认复数，需显式指定）
