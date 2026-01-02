@@ -57,8 +57,9 @@ func GenerateAIQuestionService(ctx context.Context, questionType int, tag, secon
 	excelDesc := "按照此格式Excel表头:题目类型、题干、选项A、选项B、选项C、选项D、正确答案、答案解析、题目备注、一级分类、二级分类; 其中题型取值:0=选择题、1=填空题、2=问答题"
 	questionTypeDesc := fmt.Sprintf("生成题型是%s", consts.GetQuestionTypeName(questionType))
 	questionNumDesc := fmt.Sprintf("生成题目数量是%d", count)
+	QuestionRemarkDesc := "题目备注：来源、难度、考察点"
 	tagDesc := fmt.Sprintf("其中一级分类是%s,二级分类是%s", tag, secondTag)
-	requirementsDesc := fmt.Sprintf("题目描述是%s;%s;%s;%s;%s", requirements, excelDesc, questionTypeDesc, questionNumDesc, tagDesc)
+	requirementsDesc := fmt.Sprintf("题目描述是%s;%s;%s;%s;%s;%s", requirements, excelDesc, questionTypeDesc, questionNumDesc, QuestionRemarkDesc, tagDesc)
 
 	// 调用第三方AI接口
 	generatedQuestionContent, err := third_part.NewDouBaoAiService().GetAiGenerateQuestion(ctx, requirementsDesc)
@@ -106,6 +107,7 @@ func parseMarkdownTable(table string) ([]*model.ExamQuestion, error) {
 		}
 
 		if len(trimFields) != 11 {
+			fmt.Println("字段数量不匹配", trimFields, len(trimFields), fields, len(fields))
 			continue // 跳过字段数量不匹配的行
 		}
 
@@ -116,6 +118,7 @@ func parseMarkdownTable(table string) ([]*model.ExamQuestion, error) {
 		}
 
 		// 创建问题对象
+		// |题目类型|题干|选项A|选项B|选项C|选项D|正确答案|答案解析|题目备注|一级分类|二级分类|
 		q := &model.ExamQuestion{
 			QuestionType:   qType,
 			QuestionTitle:  trimFields[1],
@@ -129,6 +132,20 @@ func parseMarkdownTable(table string) ([]*model.ExamQuestion, error) {
 			Tag:            trimFields[9],
 			SecondTag:      trimFields[10],
 			UploadType:     consts.QuestionImportTypeAiDouBao, // 默认为AI生成
+		}
+
+		// 针对tag检查, 这里要使用log代替
+		if !IsValidPrimaryTag(q.Tag) {
+			fmt.Printf("无效的标签关系：%s-%s", q.Tag, q.SecondTag)
+			continue
+		}
+		if !IsSecondaryOfPrimary(q.Tag, q.SecondTag) {
+			fmt.Printf("无效的标签关系：%s-%s", q.Tag, q.SecondTag)
+			continue
+		}
+		if err := validateTagRelation(q.Tag, q.SecondTag); err != nil {
+			fmt.Printf("无效的标签关系：%s-%s", q.Tag, q.SecondTag)
+			continue
 		}
 
 		questions = append(questions, q)
