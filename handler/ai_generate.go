@@ -45,6 +45,15 @@ func GenerateAIQuestion(c *gin.Context) {
 		return
 	}
 
+	if len(questions) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 200,
+			"msg":  "AI题目生成成功，但无有效题目",
+			"data": questions,
+		})
+		return
+	}
+
 	// 返回成功结果
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,

@@ -55,11 +55,12 @@ func GenerateAIQuestionService(ctx context.Context, questionType int, tag, secon
 	// 这里可以创建让AI回答输出的模板
 	// 比如:  按照此格式Excel表头：题目类型、题干、选项A、选项B、选项C、选项D、正确答案、答案解析、题目备注、一级分类、二级分类; 其中题型取值：0=选择题、1=填空题、2=问答题
 	excelDesc := "按照此格式Excel表头:题目类型、题干、选项A、选项B、选项C、选项D、正确答案、答案解析、题目备注、一级分类、二级分类; 其中题型取值:0=选择题、1=填空题、2=问答题"
+	answerAnalysisDesc := "答案解析:针对正确答案做分析，务必要有此字段"
 	questionTypeDesc := fmt.Sprintf("生成题型是%s", consts.GetQuestionTypeName(questionType))
 	questionNumDesc := fmt.Sprintf("生成题目数量是%d", count)
 	QuestionRemarkDesc := "题目备注：来源、难度、考察点"
 	tagDesc := fmt.Sprintf("其中一级分类是%s,二级分类是%s", tag, secondTag)
-	requirementsDesc := fmt.Sprintf("题目描述是%s;%s;%s;%s;%s;%s", requirements, excelDesc, questionTypeDesc, questionNumDesc, QuestionRemarkDesc, tagDesc)
+	requirementsDesc := fmt.Sprintf("题目描述是%s;%s;%s;%s;%s;%s;%s", requirements, excelDesc, answerAnalysisDesc, questionTypeDesc, questionNumDesc, QuestionRemarkDesc, tagDesc)
 
 	// 调用第三方AI接口
 	generatedQuestionContent, err := third_part.NewDouBaoAiService().GetAiGenerateQuestion(ctx, requirementsDesc)
