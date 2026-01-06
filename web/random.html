@@ -33,8 +33,22 @@
         .correct-answer { color: #28a745; font-weight: bold; }
         .analysis { color: #666; margin: 5px 0; }
         .remark { color: #999; font-style: italic; font-size: 14px; }
-        h1 { color: #333; border-bottom: 2px solid #4285F4; padding-bottom: 10px; }
-        /* 分类选择框样式 */
+    h1 { color: #333; border-bottom: 2px solid #4285F4; padding-bottom: 10px; }
+    /* 收藏星形图标样式 */
+    .favorite-star {
+        cursor: pointer;
+        font-size: 20px;
+        color: #ccc;
+        margin-left: 10px;
+        transition: color 0.3s;
+    }
+    .favorite-star:hover {
+        color: #ffc107;
+    }
+    .favorite-star.favorited {
+        color: #ffc107;
+    }
+    /* 分类选择框样式 */
         select {
             display: block; margin: 10px 0; padding: 8px; width: 50%; box-sizing: border-box;
             border: 1px solid #ddd; border-radius: 4px;
@@ -197,11 +211,12 @@
                             typeColor = "#6c757d";
                     }
 
-                    // 拼接HTML（新增分类标签）
+                    // 拼接HTML（新增分类标签和收藏星形图标）
                     let html = `
                           <h4>
                               <span class="question-type" style="background-color: ${typeColor}">${typeText}</span>
                               ${index + 1}. ${q.question_title}
+                              <span class="favorite-star" onclick="toggleFavorite(${q.id}, this, '${q.tag}', '${q.second_tag}')" id="favorite_${q.id}">★</span>
                           </h4>
                       `;
 
@@ -237,10 +252,111 @@
                     item.innerHTML = html;
                     list.appendChild(item);
                 });
+
+                // 获取收藏状态
+                getCollectionStatus(questions);
             })
             .catch(err => {
                 list.innerText = "获取题目失败：" + err.message;
             });
+    }
+
+    // 获取收藏状态
+    function getCollectionStatus(questions) {
+        if (questions.length === 0) return;
+
+        // 提取题目ID列表
+        const questionIDs = questions.map(q => q.id);
+
+        // 构造查询参数
+        const queryString = `?question_ids=${questionIDs.join('&question_ids=')}`;
+
+        // 发起请求
+        fetch(`${baseUrl}/collection/batch/status${queryString}`, { method: "GET" })
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    const statusMap = res.data || {};
+
+                    // 更新收藏状态
+                    for (const questionID in statusMap) {
+                        const starElement = document.getElementById(`favorite_${questionID}`);
+                        if (starElement && statusMap[questionID]) {
+                            starElement.classList.add('favorited');
+                        }
+                    }
+                }
+            })
+            .catch(err => {
+                console.error("获取收藏状态失败：", err);
+            });
+    }
+
+    // 切换收藏状态
+    function toggleFavorite(questionID, starElement, tag, secondTag) {
+        const isFavorited = starElement.classList.contains('favorited');
+
+        if (isFavorited) {
+            // 取消收藏
+            cancelFavorite(questionID, starElement);
+        } else {
+            // 添加收藏
+            addFavorite(questionID, starElement, tag, secondTag);
+        }
+    }
+
+    // 添加收藏
+    function addFavorite(questionID, starElement, tag, secondTag) {
+        // 构造请求数据
+        const requestData = {
+            question_id: questionID,
+            tag: tag,
+            second_tag: secondTag
+        };
+
+        // 发送请求
+        fetch(`${baseUrl}/collection`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.code === 200) {
+                starElement.classList.add('favorited');
+                alert("收藏成功");
+            } else {
+                alert("收藏失败：" + res.msg);
+            }
+        })
+        .catch(err => {
+            alert("收藏失败：" + err.message);
+        });
+    }
+
+    // 取消收藏
+    function cancelFavorite(questionID, starElement) {
+        // 发送请求
+        fetch(`${baseUrl}/collection?question_id=${questionID}`, {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json"
+            }
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.code === 200) {
+                starElement.classList.remove('favorited');
+                alert("取消收藏成功");
+            } else {
+                alert("取消收藏失败：" + res.msg);
+            }
+        })
+        .catch(err => {
+            alert("取消收藏失败：" + err.message);
+        });
     }
 </script>
 </body>

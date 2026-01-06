@@ -44,6 +44,13 @@ func InitRouter() *gin.Engine {
 		api.GET("/question/:id", handler.GetQuestionByID)   // 获取题目详情
 		api.PUT("/question/:id", handler.UpdateQuestion)    // 更新题目
 		api.DELETE("/question/:id", handler.DeleteQuestion) // 删除题目
+		
+		// 收藏相关路由
+		api.POST("/collection", handler.CreateCollection)                // 创建收藏
+		api.DELETE("/collection", handler.DeleteCollection)              // 删除收藏
+		api.GET("/collection/status", handler.GetCollectionStatus)        // 获取收藏状态
+		api.GET("/collection/batch/status", handler.BatchGetCollectionStatus) // 批量获取收藏状态
+		api.GET("/collections", handler.GetCollectionList)               // 获取收藏列表
 	}
 
 	return r

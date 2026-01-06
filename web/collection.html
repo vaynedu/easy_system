@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>专项练习 - 简易多题型自动出题系统</title>
+    <title>收藏题目 - 简易多题型自动出题系统</title>
     <style>
         .container { width: 90%; margin: 20px auto; }
         .module { margin: 30px 0; padding: 20px; border: 1px solid #eee; border-radius: 8px; }
@@ -35,47 +35,55 @@
             display: inline-block; padding: 2px 8px; margin: 2px;
             background-color: #17a2b8; color: white; border-radius: 4px; font-size: 12px;
         }
-        .correct-answer { color: #28a745; font-weight: bold; white-space: pre-line;}
+        .correct-answer { color: #28a745; font-weight: bold; }
         .analysis { color: #666; margin: 5px 0; }
         .remark { color: #999; font-style: italic; font-size: 14px; }
         h1 { color: #333; border-bottom: 2px solid #4285F4; padding-bottom: 10px; }
-        .favorite-star {
-            cursor: pointer;
-            font-size: 20px;
-            color: #ccc;
-            margin-left: 10px;
-            transition: color 0.3s;
+        .collection-section {
+            display: inline-block; margin-right: 20px; margin-bottom: 10px;
         }
-        .favorite-star:hover {
-            color: #ffc107;
+        .collection-label {
+            font-weight: bold; margin-right: 10px;
         }
-        .favorite-star.favorited {
-            color: #ffc107;
+        .collection-count {
+            color: #4285F4;
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>专项练习</h1>
+    <h1>收藏题目</h1>
 
-    <!-- 专项分类筛选模块 -->
+    <!-- 收藏题目分类筛选 -->
     <div class="module">
-        <h2>专项分类筛选</h2>
-        <select id="primaryTag" onchange="loadSecondaryTags()">
-            <option value="">请选择一级分类（可选）</option>
-            <!-- 动态加载一级分类 -->
-        </select>
-        <select id="secondaryTag">
-            <option value="">请先选择一级分类</option>
-            <!-- 联动加载二级分类 -->
-        </select>
-        <button onclick="getSpecialQuestions()">获取专项题目</button>
+        <h2>收藏分类筛选</h2>
+        <div class="collection-section">
+            <label class="collection-label">一级分类：</label>
+            <select id="primaryTag" onchange="loadSecondaryTags()">
+                <option value="">请选择一级分类（可选）</option>
+                <!-- 动态加载一级分类 -->
+            </select>
+        </div>
+        <div class="collection-section">
+            <label class="collection-label">二级分类：</label>
+            <select id="secondaryTag">
+                <option value="">请先选择一级分类</option>
+                <!-- 联动加载二级分类 -->
+            </select>
+        </div>
+        <div class="collection-section">
+            <button onclick="getCollectionList()">筛选收藏</button>
+            <button onclick="resetFilter()">重置筛选</button>
+        </div>
     </div>
 
-    <!-- 题目列表展示 -->
+    <!-- 收藏题目列表展示 -->
     <div class="module">
-        <h2>专项题目列表</h2>
-        <div id="questionList"></div>
+        <h2>收藏题目列表</h2>
+        <div id="collectionStats" style="margin-bottom: 15px;">
+            <!-- 收藏统计信息 -->
+        </div>
+        <div id="collectionList"></div>
         <div class="pagination" id="pagination">
             <!-- 分页按钮 -->
         </div>
@@ -87,10 +95,12 @@
     let tagTreeData = []; // 缓存分类树数据
     let currentPage = 1;
     const pageSize = 10;
+    let totalCollections = 0;
 
     // 页面加载初始化
     window.onload = function() {
         loadPrimaryTags();
+        getCollectionList();
     }
 
     // 加载一级分类数据
@@ -112,14 +122,14 @@
                     });
                 } else {
                     console.error("加载分类数据失败：", res.msg);
-                    const list = document.getElementById("questionList");
+                    const list = document.getElementById("collectionList");
                     list.style.color = "orange";
                     list.innerText = "分类数据加载失败！";
                 }
             })
             .catch(err => {
                 console.error("加载分类异常：", err);
-                const list = document.getElementById("questionList");
+                const list = document.getElementById("collectionList");
                 list.style.color = "orange";
                 list.innerText = "分类数据加载异常！";
             });
@@ -160,16 +170,16 @@
         }
     }
 
-    // 获取专项题目
-    function getSpecialQuestions() {
+    // 获取收藏列表
+    function getCollectionList() {
         currentPage = 1;
-        loadSpecialQuestions();
+        loadCollectionList();
     }
 
-    // 加载专项题目（分页）
-    function loadSpecialQuestions() {
-        const list = document.getElementById("questionList");
-        list.innerHTML = '<p style="color: #666;">正在获取题目，请稍候...</p>';
+    // 加载收藏列表（分页）
+    function loadCollectionList() {
+        const list = document.getElementById("collectionList");
+        list.innerHTML = '<p style="color: #666;">正在获取收藏题目，请稍候...</p>';
 
         // 获取筛选条件
         const primaryTag = document.getElementById("primaryTag").value.trim();
@@ -184,7 +194,7 @@
         const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '?page=1&size=10';
 
         // 发起请求（带筛选参数和分页）
-        fetch(`${baseUrl}/questions${queryString}`, { method: "GET" })
+        fetch(`${baseUrl}/collections${queryString}`, { method: "GET" })
             .then(res => res.json())
             .then(res => {
                 list.innerHTML = "";
@@ -194,24 +204,30 @@
                     return;
                 }
 
-                const questions = res.data.questions;
-                const total = res.data.total;
+                const collections = res.data.collections || [];
+                totalCollections = res.data.total || 0;
 
-                if (questions.length === 0) {
-                    list.innerText = "当前筛选条件下暂无题目，请更换分类或前往【题目上传】页面录入题目！";
+                // 更新统计信息
+                updateCollectionStats(totalCollections);
+
+                if (collections.length === 0) {
+                    list.innerText = "暂无收藏题目，请前往其他页面收藏题目！";
                     document.getElementById("pagination").innerHTML = "";
                     return;
                 }
 
-                // 渲染题目列表
-                questions.forEach((q, index) => {
+                // 渲染收藏题目列表
+                collections.forEach((collection, index) => {
+                    const question = collection.question;
+                    if (!question) return;
+
                     const item = document.createElement("div");
                     item.className = "question-item";
 
                     // 题型转换
                     let typeText = "";
                     let typeColor = "";
-                    switch (q.question_type) {
+                    switch (question.question_type) {
                         case 0:
                             typeText = "选择题";
                             typeColor = "#4285F4";
@@ -233,133 +249,68 @@
                     let html = `
                         <h4>
                             <span class="question-type" style="background-color: ${typeColor}">${typeText}</span>
-                            ${index + 1}. ${q.question_title}
-                            <span class="favorite-star" onclick="toggleFavorite(${q.id}, this, '${q.tag}', '${q.second_tag}')" id="favorite_${q.id}">★</span>
+                            ${(currentPage - 1) * pageSize + index + 1}. ${question.question_title}
                         </h4>
                     `;
 
                     // 显示分类标签（有值才展示）
-                    if (q.tag || q.second_tag) {
+                    if (question.tag || question.second_tag) {
                         html += `<div style="margin: 8px 0;">`;
-                        if (q.tag) {
-                            html += `<span class="tag-label">一级分类：${q.tag}</span>`;
+                        if (question.tag) {
+                            html += `<span class="tag-label">一级分类：${question.tag}</span>`;
                         }
-                        if (q.second_tag) {
-                            html += `<span class="second-tag-label">二级分类：${q.second_tag}</span>`;
+                        if (question.second_tag) {
+                            html += `<span class="second-tag-label">二级分类：${question.second_tag}</span>`;
                         }
                         html += `</div>`;
                     }
 
                     // 选择题显示选项
-                    if (q.question_type === 0) {
+                    if (question.question_type === 0) {
                         html += `
-                            <p>A. ${q.option_a}</p>
-                            <p>B. ${q.option_b}</p>
-                            <p>C. ${q.option_c}</p>
-                            <p>D. ${q.option_d}</p>
+                            <p>A. ${question.option_a}</p>
+                            <p>B. ${question.option_b}</p>
+                            <p>C. ${question.option_c}</p>
+                            <p>D. ${question.option_d}</p>
                         `;
                     }
 
                     // 答案、解析、备注
                     html += `
-                        <p class="correct-answer">正确答案：${q.correct_answer}</p>
-                        <p class="analysis">解析：${q.answer_analysis || "无解析"}</p>
-                        <p class="remark">备注：${q.question_remark || "无备注"}</p>
+                        <p class="correct-answer">正确答案：${question.correct_answer}</p>
+                        <p class="analysis">解析：${question.answer_analysis || "无解析"}</p>
+                        <p class="remark">备注：${question.question_remark || "无备注"}</p>
+                        <div style="margin-top: 10px;">
+                            <button onclick="cancelCollection(${question.id})" style="background-color: #dc3545;">取消收藏</button>
+                            <span style="color: #666; margin-left: 10px;">收藏时间：${new Date(collection.created_at).toLocaleString()}</span>
+                        </div>
                     `;
 
                     item.innerHTML = html;
                     list.appendChild(item);
                 });
 
-                // 获取收藏状态
-                getCollectionStatus(questions);
-
                 // 渲染分页
-                renderPagination(total, currentPage, pageSize);
+                renderPagination(totalCollections, currentPage, pageSize);
             })
             .catch(err => {
-                list.innerText = "获取题目失败：" + err.message;
+                list.innerText = "获取收藏题目失败：" + err.message;
             });
     }
-    
-    // 获取收藏状态
-    function getCollectionStatus(questions) {
-        if (questions.length === 0) return;
-        
-        // 提取题目ID列表
-        const questionIDs = questions.map(q => q.id);
-        
-        // 构造查询参数
-        const queryString = `?question_ids=${questionIDs.join('&question_ids=')}`;
-        
-        // 发起请求
-        fetch(`${baseUrl}/collection/batch/status${queryString}`, { method: "GET" })
-            .then(res => res.json())
-            .then(res => {
-                if (res.code === 200) {
-                    const statusMap = res.data || {};
-                    
-                    // 更新收藏状态
-                    for (const questionID in statusMap) {
-                        const starElement = document.getElementById(`favorite_${questionID}`);
-                        if (starElement && statusMap[questionID]) {
-                            starElement.classList.add('favorited');
-                        }
-                    }
-                }
-            })
-            .catch(err => {
-                console.error("获取收藏状态失败：", err);
-            });
+
+    // 更新收藏统计信息
+    function updateCollectionStats(total) {
+        const statsDiv = document.getElementById("collectionStats");
+        statsDiv.innerHTML = `<strong>共收藏 ${total} 道题目</strong>`;
     }
-    
-    // 切换收藏状态
-    function toggleFavorite(questionID, starElement, tag, secondTag) {
-        const isFavorited = starElement.classList.contains('favorited');
-        
-        if (isFavorited) {
-            // 取消收藏
-            cancelFavorite(questionID, starElement);
-        } else {
-            // 添加收藏
-            addFavorite(questionID, starElement, tag, secondTag);
-        }
-    }
-    
-    // 添加收藏
-    function addFavorite(questionID, starElement, tag, secondTag) {
-        // 构造请求数据
-        const requestData = {
-            question_id: questionID,
-            tag: tag,
-            second_tag: secondTag
-        };
-        
-        // 发送请求
-        fetch(`${baseUrl}/collection`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(requestData)
-        })
-        .then(res => res.json())
-        .then(res => {
-            if (res.code === 200) {
-                starElement.classList.add('favorited');
-                alert("收藏成功");
-            } else {
-                alert("收藏失败：" + res.msg);
-            }
-        })
-        .catch(err => {
-            alert("收藏失败：" + err.message);
-        });
-    }
-    
+
     // 取消收藏
-    function cancelFavorite(questionID, starElement) {
-        // 发送请求
+    function cancelCollection(questionID) {
+        if (!confirm("确定要取消收藏这道题目吗？")) {
+            return;
+        }
+
+        // 发送取消收藏请求
         fetch(`${baseUrl}/collection?question_id=${questionID}`, {
             method: "DELETE",
             headers: {
@@ -369,8 +320,8 @@
         .then(res => res.json())
         .then(res => {
             if (res.code === 200) {
-                starElement.classList.remove('favorited');
                 alert("取消收藏成功");
+                loadCollectionList(); // 刷新列表
             } else {
                 alert("取消收藏失败：" + res.msg);
             }
@@ -384,6 +335,11 @@
     function renderPagination(total, currentPage, pageSize) {
         const totalPages = Math.ceil(total / pageSize);
         const pagination = document.getElementById("pagination");
+
+        if (totalPages <= 1) {
+            pagination.innerHTML = '';
+            return;
+        }
 
         let html = '';
         if (currentPage > 1) {
@@ -408,7 +364,14 @@
     // 跳转到指定页
     function goToPage(page) {
         currentPage = page;
-        loadSpecialQuestions();
+        loadCollectionList();
+    }
+
+    // 重置筛选条件
+    function resetFilter() {
+        document.getElementById("primaryTag").value = "";
+        document.getElementById("secondaryTag").innerHTML = '<option value="">请先选择一级分类</option>';
+        getCollectionList();
     }
 </script>
 </body>
