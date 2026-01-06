@@ -326,13 +326,10 @@
         .then(res => {
             if (res.code === 200) {
                 starElement.classList.add('favorited');
-                alert("收藏成功");
-            } else {
-                alert("收藏失败：" + res.msg);
             }
         })
         .catch(err => {
-            alert("收藏失败：" + err.message);
+            console.error("收藏失败：", err);
         });
     }
 
@@ -349,13 +346,10 @@
         .then(res => {
             if (res.code === 200) {
                 starElement.classList.remove('favorited');
-                alert("取消收藏成功");
-            } else {
-                alert("取消收藏失败：" + res.msg);
             }
         })
         .catch(err => {
-            alert("取消收藏失败：" + err.message);
+            console.error("取消收藏失败：", err);
         });
     }
 </script>
