@@ -1,3 +1,8 @@
+
+# mysql -h 10.10.187.22 -P 3306 -u root -p 123456
+# root:123456.@tcp(10.10.187.22:3306)/marketing?charset=utf8mb4&parseTime=True&loc=Local
+
+
 DROP TABLE IF EXISTS exam_questions;
 CREATE TABLE IF NOT EXISTS exam_questions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '题目唯一自增ID',
@@ -13,10 +18,10 @@ CREATE TABLE IF NOT EXISTS exam_questions (
     tag VARCHAR(50) DEFAULT '' COMMENT '题目一级分类（大类别）',
     second_tag VARCHAR(100) DEFAULT '' COMMENT '题目二级分类（细分类别）',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE  CURRENT_TIMESTAMP COMMENT '更新时间',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE  CURRENT_TIMESTAMP COMMENT '更新时间',
     upload_type TINYINT(1) NOT NULL COMMENT '题目录入方式，默认0=手动 1=excel表格 2=豆包AI 3=阿里AI 4=云雾AI',
     PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT '多题型通用题库表（选择/填空/问答）';
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT '多题型通用题库表（选择/填空/问答）';
 
 
 -- 给现有题库表新增一级分类（tag）、二级分类（second_tag）字段
@@ -32,4 +37,15 @@ ALTER TABLE  exam_questions
     ADD COLUMN   update_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE  CURRENT_TIMESTAMP COMMENT '更新时间';
 
 ALTER TABLE  exam_questions
+    CHANGE COLUMN update_at updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE  CURRENT_TIMESTAMP COMMENT '更新时间';
+
+
+
+ALTER TABLE  exam_questions
     ADD COLUMN   upload_type TINYINT(1) NOT NULL COMMENT '题目录入方式，默认0=手动 1=excel表格 2=豆包AI 3=阿里AI 4=云雾AI';
+
+select * from exam_questions where id = 11;
+
+update exam_questions
+set tag='数据存储', second_tag='MySQL'
+where id > 0;
