@@ -15,12 +15,6 @@ func CreateCollectionService(questionID uint, tag, secondTag string) error {
 	if questionID == 0 {
 		return errors.New("题目ID不能为空")
 	}
-	if tag == "" {
-		return errors.New("一级分类不能为空")
-	}
-	if secondTag == "" {
-		return errors.New("二级分类不能为空")
-	}
 
 	// 检查题目是否存在
 	questionDao := dao.NewQuestionDao(config.DB)
